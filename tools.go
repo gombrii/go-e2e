@@ -11,25 +11,8 @@ import (
 	"sync"
 )
 
-type Hooks struct {
-	Before func() any
-	After  func(any)
-}
-
 var variable *regexp.Regexp = regexp.MustCompile(`\$\w+`)
 var progressBarMutex = sync.Mutex{}
-
-func ensureHooks(hooks *Hooks) {
-	if hooks == nil {
-		hooks = &Hooks{}
-	}
-	if hooks.Before == nil {
-		hooks.Before = func() any { return nil }
-	}
-	if hooks.After == nil {
-		hooks.After = func(any) {}
-	}
-}
 
 func moveUp(lines int) {
 	fmt.Printf("\033[%dA", lines)

@@ -25,15 +25,7 @@ type (
 	Captors   []string
 )
 
-func (s Sequence) Run(hooks *Hooks) {
-	ensureHooks(hooks)
-	envs := hooks.Before()
-	defer hooks.After(envs)
-	result := s.runWithClient(&http.Client{})
-	fmt.Print(result.buf.String())
-}
-
-func (s Sequence) runWithClient(client *http.Client) result {
+func (s Sequence) run(client *http.Client) result {
 	buf := &bytes.Buffer{}
 	logger := log.New(buf, "", 0)
 	allPassed := true

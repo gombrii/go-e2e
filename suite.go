@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"bytes"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -21,15 +20,7 @@ type (
 	}
 )
 
-func (s Suite) Run(hooks *Hooks) {
-	ensureHooks(hooks)
-	envs := hooks.Before()
-	defer hooks.After(envs)
-	result := s.runWithClient(&http.Client{})
-	fmt.Print(result.buf.String())
-}
-
-func (s Suite) runWithClient(client *http.Client) result {
+func (s Suite) run(client *http.Client) result {
 	buf := &bytes.Buffer{}
 	logger := log.New(buf, "", 0)
 	ch := make(chan testResult)

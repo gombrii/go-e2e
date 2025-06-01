@@ -8,8 +8,13 @@ import (
 	"sync"
 )
 
+type Runner struct {
+	Before func() any
+	After  func(any)
+}
+
 type Set interface {
-	runWithClient(*http.Client) result
+	run(*http.Client) result
 }
 
 type result struct {
@@ -18,10 +23,10 @@ type result struct {
 	numRun int
 }
 
-func RunConcurrent(hooks *Hooks, sets ...Set) {
-	ensureHooks(hooks)
-	envs := hooks.Before()
-	defer hooks.After(envs)
+func (r Runner) Run(sets ...Set) {
+	r.ensureHooks()
+	envs := r.Before()
+	defer r.After(envs)
 
 	ch := make(chan result)
 	wg := sync.WaitGroup{}
@@ -34,7 +39,7 @@ func RunConcurrent(hooks *Hooks, sets ...Set) {
 		wg.Add(1)
 		go func(set Set) {
 			defer wg.Done()
-			ch <- set.runWithClient(client)
+			ch <- set.run(client)
 		}(set)
 	}
 
@@ -63,8 +68,8 @@ Successful sets: %d
 Failed sets: %d
 `, resultText(allPassed), numRun, numPassed, numFailed)
 
-	input := confirm(`Press enter to see failed test logs, or type "f" and press enter to see full test logs: `)
-	full := strings.Trim(input, "\n") == "f"
+	input := confirm(`Do you want to see full test logs (vs only failed)? [y/N]: `)
+	full := strings.ToLower(strings.Trim(input, "\n")) == "y"
 
 	for _, result := range results {
 		switch full {
@@ -75,5 +80,14 @@ Failed sets: %d
 				fmt.Print(result.buf.String())
 			}
 		}
+	}
+}
+
+func (r *Runner) ensureHooks() {
+	if r.Before == nil {
+		r.Before = func() any { return nil }
+	}
+	if r.After == nil {
+		r.After = func(any) {}
 	}
 }
