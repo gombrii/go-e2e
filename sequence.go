@@ -7,8 +7,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 )
+
+var variable *regexp.Regexp = regexp.MustCompile(`\$\w+`)
 
 type (
 	Sequence struct {

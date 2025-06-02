@@ -6,12 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"sync"
 )
 
-var variable *regexp.Regexp = regexp.MustCompile(`\$\w+`)
 var progressBarMutex = sync.Mutex{}
 
 func moveUp(lines int) {
