@@ -26,7 +26,7 @@ func main() {
 
 Then you run your app. You will be presented with a progress bar which when filled will give way to a result summary as well as a prompt giving you the option to see only the logs of failed tests cases or to see the logs of all performed tests (lots of text).
 
-![Successful run](example/image.png)
+![Successful run](demo/image.png)
 
 But what is a "test"?
 
