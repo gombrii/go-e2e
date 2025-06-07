@@ -1,7 +1,7 @@
 # Go-e2e
-This is just a small library I wrote over a couple of days this weekend to test my own HTTP APIs. It's only written for my own personal gain. It's not tested and it only supports my own narrow set of requrements. Now that's out of the way.
+This is just a small library I mainly wrote over a couple of days this weekend to test my own HTTP APIs. It's only written for my own personal gain. It's not tested and it only supports my own narrow set of requrements.
 
-Go-e2e was written to be a quick and concurrent facilitator of HTTP API tests. From my own manual testing it seems to scale pretty constantly and run whatever amount of tests in about a second, though it's only been tested on at most about 130 tests in one go.
+Go-e2e was written to be a quick and concurrent facilitator of HTTP API tests.
 
 Go-e2e is a library, meaning it has no main function. To use it you create an empty go-module with a main fuction, create a `Runner` and call `Run` on a list of test sets you've declared yourself. 
 
@@ -24,7 +24,7 @@ func main() {
 }
 ```
 
-Then you run your app. You will be presented with a progress bar which when filled will give way to a result summary as well as a prompt giving you the option to see only the logs of failed tests cases or to see the logs of all performed tests (lots of text).
+When you run your app you will be presented with a progress bar which when filled will give way to a result summary as well as a prompt giving you the option to see only the logs of failed tests cases or to see the logs of all performed tests (lots of text).
 
 ![Successful run](demo/image.png)
 
@@ -78,8 +78,8 @@ e2e.Suite{
 			},
 			Expect: e2e.Expect{
 				Status: 200,
-				Header: e2e.Headers{
-					e2e.Header{"Set-Cookie", "session_id=abc123xyz"},
+				Headers: e2e.Headers{
+					{"Set-Cookie", "session_id=abc123xyz"},
 				},
 			},
 		},
@@ -130,7 +130,7 @@ e2e.Sequence{
 			Setup: e2e.Setup{
 				Method:  "POST",
 				URL:     "mydomain.com/auth/token",
-				Headers: []e2e.Header{{Key: "Authorization", Val: "Bearer $token"}}, // References the stored "token"
+				Headers: e2e.Headers{{Key: "Authorization", Val: "Bearer $token"}}, // References the stored "token"
 			},
 			Expect: e2e.Expect{
 				Status: 200,
@@ -152,3 +152,6 @@ e2e.Sequence{
 	},
 }
 ```
+
+## Concurrency and performance
+From my own manual testing it seems to scale pretty constantly and run whatever amount of tests in about a second, though it's only been tested on at most about 130 tests in one go.
