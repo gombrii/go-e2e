@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 )
@@ -35,7 +36,7 @@ func (s Sequence) run(client *http.Client) result {
 	data := make(map[string]string)
 
 	logger.Println(yellow("\n---------------------------------"))
-	logger.Println(yellow("TEST SEQUENCE - ", strings.ToUpper(s.Name)))
+	logger.Println(yellow(" TEST SEQUENCE - ", strings.ToUpper(s.Name)))
 	logger.Println(yellow("---------------------------------"))
 
 	numRun := 0
@@ -92,7 +93,29 @@ func Input(text string, mapTo string) InputFunc {
 		clearLine() // Clear line where prompt was drawn
 		moveUp(1)   // To line where progress bar is drawn
 
-		data[mapTo] = strings.TrimSpace(input)
+		if mapTo != "" {
+			data[mapTo] = strings.TrimSpace(input)
+		}
+
+		return nil
+	}
+}
+
+func Exec(command string, arg ...string) InputFunc {
+	return func(data map[string]string) error {
+		progressBarMutex.Lock()
+		defer progressBarMutex.Unlock()
+		reader := bufio.NewReader(os.Stdin)
+
+		moveDown(1) // To one line below progress bar
+		clearLine() // Clear line where prompt will be drawn
+
+		exec.Command(command, arg...).Run()
+		reader.ReadString('\n')
+
+		moveUp(1)   // Back to the line where the prompt was drawn
+		clearLine() // Clear line where prompt was drawn
+		moveUp(1)   // To line where progress bar is drawn
 
 		return nil
 	}

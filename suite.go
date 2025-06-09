@@ -28,7 +28,7 @@ func (s Suite) run(client *http.Client) result {
 	numPassed := 0
 
 	logger.Println(yellow("\n---------------------------------"))
-	logger.Println(yellow("TEST SUITE - ", strings.ToUpper(s.Name)))
+	logger.Println(yellow(" TEST SUITE - ", strings.ToUpper(s.Name)))
 	logger.Println(yellow("---------------------------------"))
 
 	for name, test := range s.Tests {
