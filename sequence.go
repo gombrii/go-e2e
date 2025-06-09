@@ -101,7 +101,7 @@ func Input(text string, mapTo string) InputFunc {
 	}
 }
 
-func Exec(command string, arg ...string) InputFunc {
+func Command(command string, arg ...string) InputFunc {
 	return func(data map[string]string) error {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
@@ -110,12 +110,29 @@ func Exec(command string, arg ...string) InputFunc {
 		moveDown(1) // To one line below progress bar
 		clearLine() // Clear line where prompt will be drawn
 
-		exec.Command(command, arg...).Run()
+		for i, s := range arg {
+			arg[i] = variable.ReplaceAllStringFunc(s, func(str string) string {
+				str = strings.TrimPrefix(str, "$")
+				return data[str]
+			})
+		}
+
+		cmd := exec.Command(command, arg...)
+		out, _ := cmd.Output()
+
+		qr := string(out)
+		numLines := len(strings.Split(strings.TrimSuffix(qr, "\n"), "\n"))
+
+		fmt.Print("\r", qr)
+		fmt.Print("Press Enter to continue")
 		reader.ReadString('\n')
 
-		moveUp(1)   // Back to the line where the prompt was drawn
-		clearLine() // Clear line where prompt was drawn
-		moveUp(1)   // To line where progress bar is drawn
+		for range numLines + 1 { // Remove all lines printed by the executed command
+			moveUp(1)
+			clearLine()
+		}
+
+		moveUp(1) // To line where progress bar is drawn
 
 		return nil
 	}
