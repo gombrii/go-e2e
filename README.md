@@ -1,3 +1,7 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![GitHub tag](https://img.shields.io/github/v/tag/gomsim/go-e2e)](https://github.com/gomsim/go-e2e/tags)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/gomsim/go-e2e)
+
 # Go-e2e
 This is just a small library I mainly wrote over a couple of days this weekend to test my own HTTP APIs. It's only written for my own personal gain. It's not tested and it only supports my own narrow set of requrements.
 
