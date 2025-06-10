@@ -25,8 +25,8 @@ type result struct {
 
 func (r Runner) Run(sets ...Set) {
 	r.ensureHooks()
-	envs := r.Before()
-	defer r.After(envs)
+	before := r.Before()
+	defer r.After(before)
 
 	ch := make(chan result)
 	wg := sync.WaitGroup{}
