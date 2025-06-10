@@ -16,15 +16,17 @@ var variable *regexp.Regexp = regexp.MustCompile(`\$\w+`)
 type (
 	Sequence struct {
 		Name  string
-		Steps []Step
+		Steps Steps
 	}
-	Step struct {
-		Inputs  []InputFunc
-		Setup   Setup
+	Steps []step
+	step struct {
+		Before  []action
+		Request   Request
 		Expect  Expect
 		Capture Captors
 	}
-	InputFunc func(data map[string]string) error
+	Before []action
+	action func(data map[string]string) error
 	Captors   []string
 )
 
@@ -50,18 +52,18 @@ func (s Sequence) run(client *http.Client) result {
 	return result{buf, allPassed, numRun}
 }
 
-func (s Step) run(client *http.Client, buf *bytes.Buffer, data map[string]string) (passed bool) {
-	for _, fun := range s.Inputs {
-		err := fun(data)
+func (s step) run(client *http.Client, buf *bytes.Buffer, data map[string]string) (passed bool) {
+	for _, action := range s.Before {
+		err := action(data)
 		if err != nil {
-			fmt.Fprintf(buf, "\n%s: asking for user input: %v\n", pink("ERROR"), err)
+			fmt.Fprintf(buf, "\n%s: performing pre test action: %v\n", pink("ERROR"), err)
 			return false
 		}
 	}
 
-	s.Setup = inject(s.Setup, data)
+	s.Request = inject(s.Request, data)
 
-	body, result := run(client, buf, s.Setup, s.Expect)
+	body, result := run(client, buf, s.Request, s.Expect)
 	if !result.passed {
 		return false
 	}
@@ -71,7 +73,7 @@ func (s Step) run(client *http.Client, buf *bytes.Buffer, data map[string]string
 	return true
 }
 
-func Input(text string, mapTo string) InputFunc {
+func Input(text string, mapTo string) action {
 	return func(data map[string]string) error {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
@@ -98,7 +100,7 @@ func Input(text string, mapTo string) InputFunc {
 	}
 }
 
-func Command(command string, args ...string) InputFunc { // Can add mapTo as first argument to be able to capture output
+func Command(command string, args ...string) action { // Can add mapTo as first argument to be able to capture output
 	return func(data map[string]string) error {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
@@ -137,28 +139,28 @@ func Command(command string, args ...string) InputFunc { // Can add mapTo as fir
 	}
 }
 
-func inject(setup Setup, data map[string]string) Setup {
+func inject(req Request, data map[string]string) Request {
 	if len(data) == 0 {
-		return setup
+		return req
 	}
 
-	setup.URL = variable.ReplaceAllStringFunc(setup.URL, func(s string) string {
+	req.URL = variable.ReplaceAllStringFunc(req.URL, func(s string) string {
 		s = strings.TrimPrefix(s, "$")
 		return data[s]
 	})
-	for i, h := range setup.Headers {
+	for i, h := range req.Headers {
 		h.Val = variable.ReplaceAllStringFunc(h.Val, func(s string) string {
 			s = strings.TrimPrefix(s, "$")
 			return data[s]
 		})
-		setup.Headers[i] = h
+		req.Headers[i] = h
 	}
-	setup.Body = variable.ReplaceAllStringFunc(setup.Body, func(s string) string {
+	req.Body = variable.ReplaceAllStringFunc(req.Body, func(s string) string {
 		s = strings.TrimPrefix(s, "$")
 		return data[s]
 	})
 
-	return setup
+	return req
 }
 
 func capture(body map[string]any, data map[string]string, captors Captors) {

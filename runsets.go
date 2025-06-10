@@ -9,11 +9,11 @@ import (
 )
 
 type Runner struct {
-	Before func() any
-	After  func(any)
+	BeforeRun func() any
+	AfterRun  func(any)
 }
 
-type Set interface {
+type set interface {
 	run(*http.Client) result
 }
 
@@ -23,10 +23,10 @@ type result struct {
 	numRun int
 }
 
-func (r Runner) Run(sets ...Set) {
+func (r Runner) Run(sets ...set) {
 	r.ensureHooks()
-	before := r.Before()
-	defer r.After(before)
+	before := r.BeforeRun()
+	defer r.AfterRun(before)
 
 	ch := make(chan result)
 	wg := sync.WaitGroup{}
@@ -36,12 +36,12 @@ func (r Runner) Run(sets ...Set) {
 	results := []result{}
 
 	drawProgressBar(results, len(sets))
-	for _, set := range sets {
+	for _, s := range sets {
 		wg.Add(1)
-		go func(set Set) {
+		go func(set set) {
 			defer wg.Done()
 			ch <- set.run(client)
-		}(set)
+		}(s)
 	}
 
 	go func() {
@@ -85,10 +85,10 @@ Failed sets: %d
 }
 
 func (r *Runner) ensureHooks() {
-	if r.Before == nil {
-		r.Before = func() any { return nil }
+	if r.BeforeRun == nil {
+		r.BeforeRun = func() any { return nil }
 	}
-	if r.After == nil {
-		r.After = func(any) {}
+	if r.AfterRun == nil {
+		r.AfterRun = func(any) {}
 	}
 }

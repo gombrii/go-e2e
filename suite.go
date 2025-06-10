@@ -11,11 +11,11 @@ import (
 type (
 	Suite struct {
 		Name  string
-		Tests map[string]Test
+		Tests Tests
 	}
-	Tests map[string]Test
-	Test  struct {
-		Setup  Setup
+	Tests map[string]test
+	test  struct {
+		Request  Request
 		Expect Expect
 	}
 )
@@ -30,9 +30,9 @@ func (s Suite) run(client *http.Client) result {
 	fmt.Fprintln(buf, yellow(" TEST SUITE - ", strings.ToUpper(s.Name)))
 	fmt.Fprintln(buf, yellow("---------------------------------"))
 
-	for name, test := range s.Tests {
+	for name, t := range s.Tests {
 		wg.Add(1)
-		go func(name string, test Test) {
+		go func(name string, test test) {
 			defer wg.Done()
 			buf := &bytes.Buffer{}
 			fmt.Fprintln(buf, "--------", name, "--------")
@@ -41,7 +41,7 @@ func (s Suite) run(client *http.Client) result {
 				fmt.Fprintln(buf, "\nSuccess!")
 			}
 			ch <- result
-		}(name, test)
+		}(name, t)
 	}
 
 	go func() {
@@ -67,6 +67,6 @@ Fail: %d
 	return result{buf, allPassed, len(s.Tests)}
 }
 
-func (t Test) run(client *http.Client, buf *bytes.Buffer) (parsedBody map[string]any, result testResult) {
-	return run(client, buf, t.Setup, t.Expect)
+func (t test) run(client *http.Client, buf *bytes.Buffer) (parsedBody map[string]any, result testResult) {
+	return run(client, buf, t.Request, t.Expect)
 }

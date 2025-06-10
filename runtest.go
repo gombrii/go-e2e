@@ -11,34 +11,35 @@ import (
 	"strings"
 )
 
-type Setup struct {
+type Request struct {
 	CTX     context.Context
 	Method  string
 	URL     string
-	Headers []Header
+	Headers []header
 	Content string
 	Body    string
 }
 
 type Expect struct {
 	Status  int
-	Headers []Header
-	Fields  Fields
+	Headers []header
+	Body    Body
 }
 
-type Header struct {
+type Headers []header
+type header struct {
 	Key string
 	Val string
 }
-type Fields map[string]any
+type Body map[string]any
 
 type testResult struct {
 	buf    *bytes.Buffer
 	passed bool
 }
 
-func run(client *http.Client, buf *bytes.Buffer, setup Setup, expected Expect) (parsedBody map[string]any, res testResult) {
-	resp, err := makeRequest(client, setup)
+func run(client *http.Client, buf *bytes.Buffer, req Request, expected Expect) (parsedBody map[string]any, res testResult) {
+	resp, err := makeRequest(client, req)
 	if err != nil {
 		fmt.Fprintf(buf, "\n%s: making request: %v\n", pink("ERROR"), err)
 		return map[string]any{}, testResult{buf, false}
@@ -51,7 +52,7 @@ func run(client *http.Client, buf *bytes.Buffer, setup Setup, expected Expect) (
 		return map[string]any{}, testResult{buf, false}
 	}
 
-	printSetup(buf, setup)
+	printReq(buf, req)
 	printResp(buf, resp, body, expected)
 
 	parsedBody = make(map[string]any)
@@ -65,7 +66,7 @@ func run(client *http.Client, buf *bytes.Buffer, setup Setup, expected Expect) (
 		fmt.Fprintf(buf, "\n%s: asserting header: %v\n", pink("FAIL"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
-	if err := assertBody(expected.Fields, parsedBody); err != nil {
+	if err := assertBody(expected.Body, parsedBody); err != nil {
 		fmt.Fprintf(buf, "\n%s: asserting body: %v\n", pink("FAIL"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
@@ -73,17 +74,17 @@ func run(client *http.Client, buf *bytes.Buffer, setup Setup, expected Expect) (
 	return parsedBody, testResult{buf, true}
 }
 
-func makeRequest(client *http.Client, setup Setup) (*http.Response, error) {
-	if setup.CTX == nil {
-		setup.CTX = context.Background()
+func makeRequest(client *http.Client, reqSetup Request) (*http.Response, error) {
+	if reqSetup.CTX == nil {
+		reqSetup.CTX = context.Background()
 	}
 
-	req, err := http.NewRequestWithContext(setup.CTX, setup.Method, setup.URL, io.NopCloser(strings.NewReader(setup.Body)))
+	req, err := http.NewRequestWithContext(reqSetup.CTX, reqSetup.Method, reqSetup.URL, io.NopCloser(strings.NewReader(reqSetup.Body)))
 	if err != nil {
 		return nil, fmt.Errorf("setting up: %v", err)
 	}
 
-	for _, h := range setup.Headers {
+	for _, h := range reqSetup.Headers {
 		req.Header.Add(h.Key, h.Val)
 	}
 
@@ -95,19 +96,19 @@ func makeRequest(client *http.Client, setup Setup) (*http.Response, error) {
 	return resp, nil
 }
 
-func printSetup(buf *bytes.Buffer, setup Setup) {
-	fmt.Fprintln(buf, "->", setup.Method, setup.URL)
-	for _, h := range setup.Headers {
+func printReq(buf *bytes.Buffer, req Request) {
+	fmt.Fprintln(buf, "->", req.Method, req.URL)
+	for _, h := range req.Headers {
 		fmt.Fprintf(buf, "-> %s: %s\n", h.Key, h.Val)
 	}
-	if len(setup.Body) > 0 {
-		fmt.Fprint(buf, "-> "+format([]byte(setup.Body)))
+	if len(req.Body) > 0 {
+		fmt.Fprint(buf, "-> "+format([]byte(req.Body)))
 	}
 }
 func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Expect) {
 	fmt.Fprintln(buf, "<-", resp.StatusCode)
 	for k, v := range resp.Header {
-		if slices.ContainsFunc(expected.Headers, func(header Header) bool {
+		if slices.ContainsFunc(expected.Headers, func(header header) bool {
 			return header.Key == k
 		}) {
 			fmt.Fprintf(buf, "<- %s: %s\n", k, strings.Join(v, "; "))
@@ -127,7 +128,7 @@ func assertStatus(expected int, actual int) error {
 	return nil
 }
 
-func assertHeaders(expected []Header, actual http.Header) error {
+func assertHeaders(expected []header, actual http.Header) error {
 	for _, h := range expected {
 		res, ok := actual[h.Key]
 		if !ok {
@@ -147,7 +148,7 @@ func assertHeaders(expected []Header, actual http.Header) error {
 	return nil
 }
 
-func assertBody(expected Fields, actual map[string]any) error {
+func assertBody(expected Body, actual map[string]any) error {
 	for field, exp := range expected {
 		res, ok := actual[field]
 		if !ok {
