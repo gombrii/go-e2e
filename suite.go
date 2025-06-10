@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"bytes"
-	"log"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -22,25 +22,23 @@ type (
 
 func (s Suite) run(client *http.Client) result {
 	buf := &bytes.Buffer{}
-	logger := log.New(buf, "", 0)
 	ch := make(chan testResult)
 	wg := sync.WaitGroup{}
 	numPassed := 0
 
-	logger.Println(yellow("\n---------------------------------"))
-	logger.Println(yellow(" TEST SUITE - ", strings.ToUpper(s.Name)))
-	logger.Println(yellow("---------------------------------"))
+	fmt.Fprintln(buf, yellow("\n---------------------------------"))
+	fmt.Fprintln(buf, yellow(" TEST SUITE - ", strings.ToUpper(s.Name)))
+	fmt.Fprintln(buf, yellow("---------------------------------"))
 
 	for name, test := range s.Tests {
 		wg.Add(1)
 		go func(name string, test Test) {
 			defer wg.Done()
 			buf := &bytes.Buffer{}
-			logger := log.New(buf, "", 0)
-			logger.Println("--------", name, "--------")
+			fmt.Fprintln(buf, "--------", name, "--------")
 			_, result := test.run(client, buf)
 			if result.passed {
-				logger.Println("Success!")
+				fmt.Fprintln(buf, "Success!")
 			}
 			ch <- result
 		}(name, test)
@@ -61,7 +59,7 @@ func (s Suite) run(client *http.Client) result {
 	allPassed := numPassed == len(s.Tests)
 	numFailed := len(s.Tests) - numPassed
 
-	logger.Printf(`---------------------------------
+	fmt.Fprintf(buf, `---------------------------------
 SUITE RESULT: %s
 Success: %d
 Fail: %d

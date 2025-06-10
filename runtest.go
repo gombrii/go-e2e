@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"slices"
 	"strings"
@@ -39,37 +38,35 @@ type testResult struct {
 }
 
 func run(client *http.Client, buf *bytes.Buffer, setup Setup, expected Expect) (parsedBody map[string]any, res testResult) {
-	logger := log.New(buf, "", 0)
-
 	resp, err := makeRequest(client, setup)
 	if err != nil {
-		logger.Printf("%s: making request: %v\n", pink("ERROR"), err)
+		fmt.Fprintf(buf, "%s: making request: %v\n", pink("ERROR"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logger.Printf("%s: reading response body: %v\n", pink("ERROR"), err)
+		fmt.Fprintf(buf, "%s: reading response body: %v\n", pink("ERROR"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
 
-	printSetup(logger, setup)
-	printResp(logger, resp, body, expected)
+	printSetup(buf, setup)
+	printResp(buf, resp, body, expected)
 
 	parsedBody = make(map[string]any)
 	json.Unmarshal(body, &parsedBody)
 
 	if err := assertStatus(expected.Status, resp.StatusCode); err != nil {
-		logger.Printf("%s: asserting status: %v\n", pink("FAIL"), err)
+		fmt.Fprintf(buf, "%s: asserting status: %v\n", pink("FAIL"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
 	if err := assertHeaders(expected.Headers, resp.Header); err != nil {
-		logger.Printf("%s: asserting header: %v\n", pink("FAIL"), err)
+		fmt.Fprintf(buf, "%s: asserting header: %v\n", pink("FAIL"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
 	if err := assertBody(expected.Fields, parsedBody); err != nil {
-		logger.Printf("%s: asserting body: %v\n", pink("FAIL"), err)
+		fmt.Fprintf(buf, "%s: asserting body: %v\n", pink("FAIL"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
 
@@ -98,29 +95,29 @@ func makeRequest(client *http.Client, setup Setup) (*http.Response, error) {
 	return resp, nil
 }
 
-func printSetup(logger *log.Logger, setup Setup) {
-	logger.Println("->", setup.Method, setup.URL)
+func printSetup(buf *bytes.Buffer, setup Setup) {
+	fmt.Fprintln(buf, "->", setup.Method, setup.URL)
 	for _, h := range setup.Headers {
-		logger.Printf("-> %s: %s", h.Key, h.Val)
+		fmt.Fprintf(buf, "-> %s: %s", h.Key, h.Val)
 	}
 	if len(setup.Body) > 0 {
-		logger.Print("-> " + format([]byte(setup.Body)))
+		fmt.Fprint(buf, "-> "+format([]byte(setup.Body)))
 	}
 }
-func printResp(logger *log.Logger, resp *http.Response, body []byte, expected Expect) {
-	logger.Println("<-", resp.StatusCode)
+func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Expect) {
+	fmt.Fprintln(buf, "<-", resp.StatusCode)
 	for k, v := range resp.Header {
 		if slices.ContainsFunc(expected.Headers, func(header Header) bool {
 			return header.Key == k
 		}) {
-			logger.Printf("<- %s: %s", k, strings.Join(v, "; "))
+			fmt.Fprintf(buf, "<- %s: %s", k, strings.Join(v, "; "))
 		}
 	}
 	formattedBody := ""
 	if len(body) > 0 {
 		formattedBody = "<- " + format(body)
 	}
-	logger.Println(formattedBody)
+	fmt.Fprintln(buf, formattedBody)
 }
 
 func assertStatus(expected int, actual int) error {

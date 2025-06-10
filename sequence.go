@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -31,33 +30,31 @@ type (
 
 func (s Sequence) run(client *http.Client) result {
 	buf := &bytes.Buffer{}
-	logger := log.New(buf, "", 0)
 	allPassed := true
 	data := make(map[string]string)
 
-	logger.Println(yellow("\n---------------------------------"))
-	logger.Println(yellow(" TEST SEQUENCE - ", strings.ToUpper(s.Name)))
-	logger.Println(yellow("---------------------------------"))
+	fmt.Fprintln(buf, yellow("\n---------------------------------"))
+	fmt.Fprintln(buf, yellow(" TEST SEQUENCE - ", strings.ToUpper(s.Name)))
+	fmt.Fprintln(buf, yellow("---------------------------------"))
 
 	numRun := 0
 	for i, step := range s.Steps {
-		logger.Println("Step", i+1)
+		fmt.Fprintln(buf, "Step", i+1)
 		numRun = i + 1
 		if passed := step.run(client, buf, data); !passed {
 			allPassed = false
 			break
 		}
 	}
-	logger.Printf("---------------------------------\nSEQUENCE RESULT: %s\n", resultText(allPassed))
+	fmt.Fprintf(buf, "---------------------------------\nSEQUENCE RESULT: %s\n", resultText(allPassed))
 	return result{buf, allPassed, numRun}
 }
 
 func (s Step) run(client *http.Client, buf *bytes.Buffer, data map[string]string) (passed bool) {
-	logger := log.New(buf, "", 0)
 	for _, fun := range s.Inputs {
 		err := fun(data)
 		if err != nil {
-			logger.Printf("%s: asking for user input: %v\n", pink("ERROR"), err)
+			fmt.Fprintf(buf, "%s: asking for user input: %v\n", pink("ERROR"), err)
 			return false
 		}
 	}
