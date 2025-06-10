@@ -35,6 +35,7 @@ func (r Runner) Run(sets ...Set) {
 	numPassed := 0
 	results := []result{}
 
+	drawProgressBar(results, len(sets))
 	for _, set := range sets {
 		wg.Add(1)
 		go func(set Set) {

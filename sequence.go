@@ -101,7 +101,7 @@ func Input(text string, mapTo string) InputFunc {
 	}
 }
 
-func Command(command string, arg ...string) InputFunc {
+func Command(command string, args ...string) InputFunc { // Can add mapTo as first argument to be able to capture output
 	return func(data map[string]string) error {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
@@ -110,21 +110,23 @@ func Command(command string, arg ...string) InputFunc {
 		moveDown(1) // To one line below progress bar
 		clearLine() // Clear line where prompt will be drawn
 
-		for i, s := range arg {
-			arg[i] = variable.ReplaceAllStringFunc(s, func(str string) string {
+		for i, s := range args {
+			args[i] = variable.ReplaceAllStringFunc(s, func(str string) string {
 				str = strings.TrimPrefix(str, "$")
 				return data[str]
 			})
 		}
 
-		cmd := exec.Command(command, arg...)
-		out, _ := cmd.Output()
+		cmd := exec.Command(command, args...)
+		out, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("executing command: %v", err)
+		}
 
 		qr := string(out)
 		numLines := len(strings.Split(strings.TrimSuffix(qr, "\n"), "\n"))
 
-		fmt.Print("\r", qr)
-		fmt.Print("Press Enter to continue")
+		fmt.Print("\r", qr, "Continue with Enter")
 		reader.ReadString('\n')
 
 		for range numLines + 1 { // Remove all lines printed by the executed command

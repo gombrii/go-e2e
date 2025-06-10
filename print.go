@@ -45,13 +45,6 @@ func resultText(success bool) string {
 	return red("FAIL")
 }
 
-func ifTrue(text string, condition bool) string {
-	if condition {
-		return text
-	}
-	return ""
-}
-
 func format(data []byte) string {
 	var out bytes.Buffer
 	err := json.Indent(&out, data, "", "  ")
