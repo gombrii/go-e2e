@@ -40,14 +40,14 @@ type testResult struct {
 func run(client *http.Client, buf *bytes.Buffer, setup Setup, expected Expect) (parsedBody map[string]any, res testResult) {
 	resp, err := makeRequest(client, setup)
 	if err != nil {
-		fmt.Fprintf(buf, "%s: making request: %v\n", pink("ERROR"), err)
+		fmt.Fprintf(buf, "\n%s: making request: %v\n", pink("ERROR"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Fprintf(buf, "%s: reading response body: %v\n", pink("ERROR"), err)
+		fmt.Fprintf(buf, "\n%s: reading response body: %v\n", pink("ERROR"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
 
@@ -58,15 +58,15 @@ func run(client *http.Client, buf *bytes.Buffer, setup Setup, expected Expect) (
 	json.Unmarshal(body, &parsedBody)
 
 	if err := assertStatus(expected.Status, resp.StatusCode); err != nil {
-		fmt.Fprintf(buf, "%s: asserting status: %v\n", pink("FAIL"), err)
+		fmt.Fprintf(buf, "\n%s: asserting status: %v\n", pink("FAIL"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
 	if err := assertHeaders(expected.Headers, resp.Header); err != nil {
-		fmt.Fprintf(buf, "%s: asserting header: %v\n", pink("FAIL"), err)
+		fmt.Fprintf(buf, "\n%s: asserting header: %v\n", pink("FAIL"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
 	if err := assertBody(expected.Fields, parsedBody); err != nil {
-		fmt.Fprintf(buf, "%s: asserting body: %v\n", pink("FAIL"), err)
+		fmt.Fprintf(buf, "\n%s: asserting body: %v\n", pink("FAIL"), err)
 		return map[string]any{}, testResult{buf, false}
 	}
 
@@ -98,7 +98,7 @@ func makeRequest(client *http.Client, setup Setup) (*http.Response, error) {
 func printSetup(buf *bytes.Buffer, setup Setup) {
 	fmt.Fprintln(buf, "->", setup.Method, setup.URL)
 	for _, h := range setup.Headers {
-		fmt.Fprintf(buf, "-> %s: %s", h.Key, h.Val)
+		fmt.Fprintf(buf, "-> %s: %s\n", h.Key, h.Val)
 	}
 	if len(setup.Body) > 0 {
 		fmt.Fprint(buf, "-> "+format([]byte(setup.Body)))
@@ -110,14 +110,14 @@ func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Exp
 		if slices.ContainsFunc(expected.Headers, func(header Header) bool {
 			return header.Key == k
 		}) {
-			fmt.Fprintf(buf, "<- %s: %s", k, strings.Join(v, "; "))
+			fmt.Fprintf(buf, "<- %s: %s\n", k, strings.Join(v, "; "))
 		}
 	}
 	formattedBody := ""
 	if len(body) > 0 {
 		formattedBody = "<- " + format(body)
 	}
-	fmt.Fprintln(buf, formattedBody)
+	fmt.Fprint(buf, formattedBody)
 }
 
 func assertStatus(expected int, actual int) error {

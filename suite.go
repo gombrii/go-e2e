@@ -38,7 +38,7 @@ func (s Suite) run(client *http.Client) result {
 			fmt.Fprintln(buf, "--------", name, "--------")
 			_, result := test.run(client, buf)
 			if result.passed {
-				fmt.Fprintln(buf, "Success!")
+				fmt.Fprintln(buf, "\nSuccess!")
 			}
 			ch <- result
 		}(name, test)

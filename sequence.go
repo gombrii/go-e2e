@@ -54,7 +54,7 @@ func (s Step) run(client *http.Client, buf *bytes.Buffer, data map[string]string
 	for _, fun := range s.Inputs {
 		err := fun(data)
 		if err != nil {
-			fmt.Fprintf(buf, "%s: asking for user input: %v\n", pink("ERROR"), err)
+			fmt.Fprintf(buf, "\n%s: asking for user input: %v\n", pink("ERROR"), err)
 			return false
 		}
 	}
