@@ -15,7 +15,7 @@ type Request struct {
 	CTX     context.Context
 	Method  string
 	URL     string
-	Headers []header
+	Headers Headers
 	Content string
 	Body    string
 }

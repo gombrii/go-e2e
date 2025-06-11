@@ -20,7 +20,7 @@ type (
 	}
 	Steps []step
 	step  struct {
-		Before  []action
+		Before  Before
 		Request Request
 		Expect  Expect
 		Capture Captors
