@@ -19,15 +19,15 @@ type (
 		Steps Steps
 	}
 	Steps []step
-	step struct {
+	step  struct {
 		Before  []action
-		Request   Request
+		Request Request
 		Expect  Expect
 		Capture Captors
 	}
-	Before []action
-	action func(data map[string]string) error
-	Captors   []string
+	Before  []action
+	action  func(data map[string]string) error
+	Captors []string
 )
 
 func (s Sequence) run(client *http.Client) result {
@@ -47,6 +47,7 @@ func (s Sequence) run(client *http.Client) result {
 			allPassed = false
 			break
 		}
+		fmt.Fprintln(buf)
 	}
 	fmt.Fprintf(buf, "---------------------------------\nSEQUENCE RESULT: %s\n", resultText(allPassed))
 	return result{buf, allPassed, numRun}
@@ -123,7 +124,10 @@ func Command(command string, args ...string) action { // Can add mapTo as first 
 		}
 
 		qr := string(out)
-		numLines := len(strings.Split(strings.TrimSuffix(qr, "\n"), "\n"))
+		numLines := strings.Count(qr, "\n")
+		if !strings.HasSuffix(qr, "\n") && len(qr) > 0 {
+			numLines++
+		}
 
 		fmt.Print("\r", qr, "Continue with Enter")
 		reader.ReadString('\n')

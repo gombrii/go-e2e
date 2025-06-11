@@ -39,6 +39,8 @@ type testResult struct {
 }
 
 func run(client *http.Client, buf *bytes.Buffer, req Request, expected Expect) (parsedBody map[string]any, res testResult) {
+	printReq(buf, req)
+	
 	resp, err := makeRequest(client, req)
 	if err != nil {
 		fmt.Fprintf(buf, "\n%s: making request: %v\n", pink("ERROR"), err)
@@ -52,7 +54,6 @@ func run(client *http.Client, buf *bytes.Buffer, req Request, expected Expect) (
 		return map[string]any{}, testResult{buf, false}
 	}
 
-	printReq(buf, req)
 	printResp(buf, resp, body, expected)
 
 	parsedBody = make(map[string]any)
