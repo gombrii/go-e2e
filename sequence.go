@@ -18,16 +18,7 @@ type (
 		Name  string
 		Steps Steps
 	}
-	Steps []step
-	step  struct {
-		Before  Before
-		Request Request
-		Expect  Expect
-		Capture Captors
-	}
-	Before  []action
-	action  func(data map[string]string) error
-	Captors []string
+	Steps []test
 )
 
 func (s Sequence) run(client *http.Client) result {
@@ -43,7 +34,7 @@ func (s Sequence) run(client *http.Client) result {
 	for i, step := range s.Steps {
 		fmt.Fprintln(buf, "Step", i+1)
 		numRun = i + 1
-		if passed := step.run(client, buf, data); !passed {
+		if result := step.run(client, buf, data); !result.passed {
 			allPassed = false
 			break
 		}
@@ -51,27 +42,6 @@ func (s Sequence) run(client *http.Client) result {
 	}
 	fmt.Fprintf(buf, "---------------------------------\nSEQUENCE RESULT: %s\n", resultText(allPassed))
 	return result{buf, allPassed, numRun}
-}
-
-func (s step) run(client *http.Client, buf *bytes.Buffer, data map[string]string) (passed bool) {
-	for _, action := range s.Before {
-		err := action(data)
-		if err != nil {
-			fmt.Fprintf(buf, "\n%s: performing pre test action: %v\n", pink("ERROR"), err)
-			return false
-		}
-	}
-
-	s.Request = inject(s.Request, data)
-
-	body, result := run(client, buf, s.Request, s.Expect)
-	if !result.passed {
-		return false
-	}
-
-	capture(body, data, s.Capture)
-
-	return true
 }
 
 func Input(text string, mapTo string) action {

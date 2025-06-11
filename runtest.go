@@ -11,36 +11,70 @@ import (
 	"strings"
 )
 
-type Request struct {
-	CTX     context.Context
-	Method  string
-	URL     string
-	Headers Headers
-	Content string
-	Body    string
+type test struct {
+	Before  Before
+	Request Request
+	Expect  Expect
+	Capture Captors
 }
 
-type Expect struct {
-	Status  int
+type (
+	Before  []action
+	action  func(data map[string]string) error
+	Captors []string
+	Request struct {
+		CTX     context.Context
+		Method  string
+		URL     string
+		Headers Headers
+		Content string
+		Body    string
+	}
+	Expect struct {
+		Status  int
+		Headers Headers
+		Body    Body
+	}
 	Headers []header
-	Body    Body
-}
-
-type Headers []header
-type header struct {
-	Key string
-	Val string
-}
-type Body map[string]any
+	header  struct {
+		Key string
+		Val string
+	}
+	Body map[string]any
+)
 
 type testResult struct {
 	buf    *bytes.Buffer
 	passed bool
 }
 
-func run(client *http.Client, buf *bytes.Buffer, req Request, expected Expect) (parsedBody map[string]any, res testResult) {
+func (t test) run(client *http.Client, buf *bytes.Buffer, data map[string]string) (result testResult) {
+	for _, action := range t.Before {
+		err := action(data)
+		if err != nil {
+			fmt.Fprintf(buf, "\n%s: performing pre test action: %v\n", pink("ERROR"), err)
+			return testResult{
+				buf:    buf,
+				passed: false,
+			}
+		}
+	}
+
+	t.Request = inject(t.Request, data)
+
+	body, result := performTest(client, buf, t.Request, t.Expect)
+	if !result.passed {
+		return result
+	}
+
+	capture(body, data, t.Capture)
+
+	return result
+}
+
+func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected Expect) (parsedBody map[string]any, res testResult) {
 	printReq(buf, req)
-	
+
 	resp, err := makeRequest(client, req)
 	if err != nil {
 		fmt.Fprintf(buf, "\n%s: making request: %v\n", pink("ERROR"), err)

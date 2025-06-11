@@ -14,10 +14,6 @@ type (
 		Tests Tests
 	}
 	Tests map[string]test
-	test  struct {
-		Request  Request
-		Expect Expect
-	}
 )
 
 func (s Suite) run(client *http.Client) result {
@@ -36,7 +32,7 @@ func (s Suite) run(client *http.Client) result {
 			defer wg.Done()
 			buf := &bytes.Buffer{}
 			fmt.Fprintln(buf, "--------", name, "--------")
-			_, result := test.run(client, buf)
+			result := test.run(client, buf, map[string]string{})
 			if result.passed {
 				fmt.Fprintln(buf, "\nSuccess!")
 			}
@@ -65,8 +61,4 @@ Success: %d
 Fail: %d
 `, resultText(allPassed), numPassed, numFailed)
 	return result{buf, allPassed, len(s.Tests)}
-}
-
-func (t test) run(client *http.Client, buf *bytes.Buffer) (parsedBody map[string]any, result testResult) {
-	return run(client, buf, t.Request, t.Expect)
 }
