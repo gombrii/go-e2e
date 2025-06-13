@@ -19,7 +19,7 @@ type test struct {
 }
 
 type (
-	Before  []func(data map[string]string) error
+	Before  []func(data map[string]string) (string, error)
 	Request struct {
 		CTX     context.Context
 		Method  string
@@ -47,7 +47,8 @@ type (
 
 func (t test) run(client *http.Client, buf *bytes.Buffer, data map[string]string) (result testResult) {
 	for _, action := range t.Before {
-		err := action(data)
+		description, err := action(data)
+		fmt.Fprintf(buf, "Before test: %v\n", description)
 		if err != nil {
 			fmt.Fprintf(buf, "\n%s: performing pre test action: %v\n", pink("ERROR"), err)
 			return testResult{
@@ -69,8 +70,8 @@ func (t test) run(client *http.Client, buf *bytes.Buffer, data map[string]string
 	return result
 }
 
-func Input(text string, mapTo string) func(data map[string]string) error {
-	return func(data map[string]string) error {
+func Input(text string, mapTo string) func(data map[string]string) (string, error) {
+	return func(data map[string]string) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
 		reader := bufio.NewReader(os.Stdin)
@@ -81,7 +82,7 @@ func Input(text string, mapTo string) func(data map[string]string) error {
 		fmt.Print("\rInput required - ", text, ": ")
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			return fmt.Errorf("reading input: %v", err)
+			return fmt.Sprintf("manual input %q", text), fmt.Errorf("reading input: %v", err)
 		}
 
 		moveUp(1)   // Back to the line where the prompt was drawn
@@ -92,12 +93,12 @@ func Input(text string, mapTo string) func(data map[string]string) error {
 			data[mapTo] = strings.TrimSpace(input)
 		}
 
-		return nil
+		return fmt.Sprintf("manual input: %q", text), nil
 	}
 }
 
-func Command(command string, args ...string) func(data map[string]string) error { // Can add mapTo as first argument to be able to capture output
-	return func(data map[string]string) error {
+func Command(command string, args ...string) func(data map[string]string) (string, error) { // Can add mapTo as first argument to be able to capture output
+	return func(data map[string]string) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
 		reader := bufio.NewReader(os.Stdin)
@@ -115,7 +116,7 @@ func Command(command string, args ...string) func(data map[string]string) error 
 		cmd := exec.Command(command, args...)
 		out, err := cmd.Output()
 		if err != nil {
-			return fmt.Errorf("executing command: %v", err)
+			return fmt.Sprintf("command run %q", command), fmt.Errorf("executing command: %v", err)
 		}
 
 		qr := string(out)
@@ -134,7 +135,7 @@ func Command(command string, args ...string) func(data map[string]string) error 
 
 		moveUp(1) // To line where progress bar is drawn
 
-		return nil
+		return fmt.Sprintf("command run: %q", command), nil
 	}
 }
 
