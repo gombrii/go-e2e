@@ -119,13 +119,15 @@ func Command(command string, args ...string) func(data map[string]string) (strin
 			return fmt.Sprintf("command run %q", command), fmt.Errorf("executing command: %v", err)
 		}
 
-		qr := string(out)
-		numLines := strings.Count(qr, "\n")
-		if !strings.HasSuffix(qr, "\n") && len(qr) > 0 {
-			numLines++
-		}
+		outStr := strings.TrimSuffix(string(out), "\n")
+		numLines := strings.Count(outStr, "\n")
 
-		fmt.Print("\r", qr, "Continue with Enter")
+		if len(strings.TrimSpace(outStr)) > 0 {
+			numLines++
+			fmt.Print("\r", outStr, "\nContinue with Enter")
+		}else{
+			fmt.Print("\rContinue with Enter")
+		}
 		reader.ReadString('\n')
 
 		for range numLines + 1 { // Remove all lines printed by the executed command
