@@ -56,12 +56,13 @@ func format(data []byte) string {
 }
 
 func drawProgressBar(results []result, total int) {
-	minNumDash := 48
-	segSize := int(math.Max(float64(minNumDash)/float64(total), 1))
-	testsPerDash := float64(total) / float64(minNumDash)
+	numDash := 48
+	segSize := int(math.Max(float64(numDash)/float64(total), 1))
+	numDash = int(math.Min(float64(total * segSize), float64(numDash)))	
+	testsPerDash := float64(total) / float64(numDash)
 	numRun := len(results)
 	progress := float64(numRun) / float64(total)
-	filledLen := int(progress * float64(minNumDash))
+	filledLen := int(progress * float64(numDash))
 
 	bar := ""
 	for segStart := 0; segStart < filledLen; segStart += segSize {
@@ -88,7 +89,7 @@ func drawProgressBar(results []result, total int) {
 		head = ">"
 	}
 
-	bar += head + strings.Repeat(" ", minNumDash-filledLen-len(head))
+	bar += head + strings.Repeat(" ", numDash-filledLen-len(head))
 
 	progressBarMutex.Lock()
 	defer progressBarMutex.Unlock()
