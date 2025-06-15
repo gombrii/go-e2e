@@ -56,20 +56,18 @@ func format(data []byte) string {
 }
 
 func drawProgressBar(results []result, total int) {
-	numDash := 48
-	segSize := int(math.Max(float64(numDash)/float64(total), 1))
-	testsPerDash := float64(total) / float64(numDash)
+	minNumDash := 48
+	segSize := int(math.Max(float64(minNumDash)/float64(total), 1))
+	testsPerDash := float64(total) / float64(minNumDash)
 	numRun := len(results)
 	progress := float64(numRun) / float64(total)
+	filledLen := int(progress * float64(minNumDash))
 
 	bar := ""
-	filledLen := int(progress * float64(numDash))
+	for segStart := 0; segStart < filledLen; segStart += segSize {
+		start := int(float64(segStart) * testsPerDash)
+		end := int(float64(segStart+segSize) * testsPerDash)
 
-	for dash := range filledLen {
-		start := int(float64(dash) * testsPerDash)
-		end := int(float64(dash+segSize) * testsPerDash)
-
-		//fmt.Println("START:", start, "END:", end)
 		fail := false
 		for _, test := range results[start:end] {
 			if !test.passed {
@@ -79,9 +77,9 @@ func drawProgressBar(results []result, total int) {
 		}
 
 		if fail {
-			bar += red("=")
+			bar += red(strings.Repeat("=", segSize))
 		} else {
-			bar += green("=")
+			bar += green(strings.Repeat("=", segSize))
 		}
 	}
 
@@ -90,7 +88,7 @@ func drawProgressBar(results []result, total int) {
 		head = ">"
 	}
 
-	bar += head + strings.Repeat(" ", numDash-filledLen-len(head))
+	bar += head + strings.Repeat(" ", minNumDash-filledLen-len(head))
 
 	progressBarMutex.Lock()
 	defer progressBarMutex.Unlock()
