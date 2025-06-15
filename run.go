@@ -63,11 +63,10 @@ func (r Runner) Run(sets ...set) {
 
 	fmt.Printf(`
 ---------------------------------
-MULTI-SET RESULT: %s
-Total tests run: %d
-Successful sets: %d
-Failed sets: %d
-`, resultText(allPassed), numRun, numPassed, numFailed)
+TOTAL RESULT: %s
+Num sets run: %5d (%d tests)
+Failed sets: %6d
+`, resultText(allPassed), len(sets), numRun, numFailed)
 
 	input := confirm(`Do you want to see full test logs (vs only failed)? [y/N]: `)
 	full := strings.ToLower(strings.Trim(input, "\n")) == "y"
