@@ -101,7 +101,7 @@ func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Exp
 }
 
 func assertStatus(expected int, actual int) error {
-	if expected != actual {
+	if expected != 0 && expected != actual {
 		return fmt.Errorf("unexpected code, got: %d want: %d", actual, expected)
 	}
 	return nil
