@@ -55,35 +55,35 @@ func format(data []byte) string {
 }
 
 func drawProgressBar(results []result, total int) {
-	barWidth := 40
-	segmentWidth := barWidth / total
-	filled := len(results)
-	fraction := float64(filled) / float64(total)
+	numSeg := 48
+	numRun := len(results)
+	progress := float64(numRun) / float64(total)
 
-	var bar string
-	for _, result := range results {
+	bar := ""
+	filledLen := 0
+	for i, result := range results {
 		color := green
 		if !result.passed {
 			color = red
 		}
-		bar += color(strings.Repeat("=", segmentWidth))
+		newLen := int((float64(i+1) / float64(total)) * float64(numSeg))
+		bar += color(strings.Repeat("=", newLen-filledLen))
+		filledLen = newLen
 	}
 
 	head := ""
-	if filled < total {
+	if progress < 1 {
 		head = ">"
 	}
 
-	remaining := total - filled
-	bar += head + strings.Repeat(" ", remaining*segmentWidth-len(head))
+	bar += head + strings.Repeat(" ", numSeg-filledLen-len(head))
 
-	percent := int(fraction * 100)
 	progressBarMutex.Lock()
 	defer progressBarMutex.Unlock()
 	fmt.Print("\n\n") // Ensure two lines exist
 	moveUp(2)         // Move up to second-to-last line
 	clearLine()       // Clear line where progress bar will be drawn
-	fmt.Printf("\r[%s] %d%% (%d/%d)", bar, percent, filled, total)
+	fmt.Printf("\r[%s] %d%% (%d/%d)", bar, int(progress*100), numRun, total)
 }
 
 func confirm(text string) string {
