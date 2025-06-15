@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"sync"
@@ -55,20 +56,33 @@ func format(data []byte) string {
 }
 
 func drawProgressBar(results []result, total int) {
-	numSeg := 48
+	numDash := 48
+	segSize := int(math.Max(float64(numDash)/float64(total), 1))
+	testsPerDash := float64(total) / float64(numDash)
 	numRun := len(results)
 	progress := float64(numRun) / float64(total)
 
 	bar := ""
-	filledLen := 0
-	for i, result := range results {
-		color := green
-		if !result.passed {
-			color = red
+	filledLen := int(progress * float64(numDash))
+
+	for dash := range filledLen {
+		start := int(float64(dash) * testsPerDash)
+		end := int(float64(dash+segSize) * testsPerDash)
+
+		//fmt.Println("START:", start, "END:", end)
+		fail := false
+		for _, test := range results[start:end] {
+			if !test.passed {
+				fail = true
+				break
+			}
 		}
-		newLen := int((float64(i+1) / float64(total)) * float64(numSeg))
-		bar += color(strings.Repeat("=", newLen-filledLen))
-		filledLen = newLen
+
+		if fail {
+			bar += red("=")
+		} else {
+			bar += green("=")
+		}
 	}
 
 	head := ""
@@ -76,7 +90,7 @@ func drawProgressBar(results []result, total int) {
 		head = ">"
 	}
 
-	bar += head + strings.Repeat(" ", numSeg-filledLen-len(head))
+	bar += head + strings.Repeat(" ", numDash-filledLen-len(head))
 
 	progressBarMutex.Lock()
 	defer progressBarMutex.Unlock()
