@@ -7,9 +7,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"text/template"
+	"time"
 )
 
 type data struct {
+	Noise    int64
 	Hooks    hooks
 	Packages []packageInfo
 }
@@ -18,7 +20,7 @@ func main() {
 	wd, _ := os.Getwd()
 	pattern := os.Args[1]
 	hooks, packages := load(wd, pattern)
-	data := data{hooks, packages}
+	data := data{time.Now().Unix(), hooks, packages}
 	fmt.Printf("%+v\n", data)
 
 	dir, err := os.MkdirTemp("", "e2e-runner-*")

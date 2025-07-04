@@ -9,11 +9,11 @@ import (
 {{- range .Packages }}
 	{{ .PkgName }} "{{ .PkgPath }}"
 {{- end }}
-	"github.com/gombrii/go-e2e"
+	e2e{{ .Noise }} "github.com/gombrii/go-e2e"
 )
 
 func main() {
-	e2e.Runner{
+	e2e{{ .Noise }}.Runner{
 	{{- if .Hooks.BeforeRun}}
 		BeforeRun: {{ .Hooks.PkgName }}.{{ .Hooks.BeforeRun }},
 	{{- end }}
