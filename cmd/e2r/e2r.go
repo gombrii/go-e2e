@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"text/template"
 	"time"
+
+	"github.com/gombrii/go-e2e"
 )
 
 const (
@@ -22,11 +24,18 @@ type data struct {
 
 func main() {
 	wd, _ := os.Getwd()
-	if len(os.Args) != 2 {
+	var pattern string
+	switch len(os.Args) {
+	case 3:
+		e2e.Env = os.Args[2]
+		fallthrough
+	case 2:
+		pattern = os.Args[1]
+	default:
 		fmt.Println("Usage: e2r <pattern>\nEg.\ne2r . current package\ne2r ./tests specific package\ne2r ./tests.go specific file\ne2r ./... current package recursively")
 		os.Exit(badArgument)
 	}
-	pattern := os.Args[1]
+
 	hooks, packages, err := load(wd, pattern)
 	if err != nil {
 		fmt.Printf("Error setting up runner: %v", err)
