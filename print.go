@@ -58,7 +58,7 @@ func format(data []byte) string {
 func drawProgressBar(results []result, total int) {
 	numDash := 48
 	segSize := int(math.Max(float64(numDash)/float64(total), 1))
-	numDash = int(math.Min(float64(total * segSize), float64(numDash)))	
+	numDash = int(math.Min(float64(total*segSize), float64(numDash)))
 	testsPerDash := float64(total) / float64(numDash)
 	numRun := len(results)
 	progress := float64(numRun) / float64(total)

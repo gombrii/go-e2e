@@ -1,10 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
-	"log"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -27,19 +27,29 @@ type exportedVar struct {
 	TypeName string
 }
 
-func load(wd, target string) (hooks, []packageInfo) {
+func load(wd, target string) (hooks, []packageInfo, error) {
 	cfg := &packages.Config{
 		Mode: packages.NeedName | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo,
 		Dir:  wd,
 	}
 
-	return loadHooks(cfg), loadPackages(cfg, target)
+	hks, err := loadHooks(cfg)
+	if err != nil {
+		return hooks{}, nil, err
+	}
+
+	pkgs, err := loadPackages(cfg, target)
+	if err != nil {
+		return hooks{}, nil, err
+	}
+
+	return hks, pkgs, nil
 }
 
-func loadPackages(cfg *packages.Config, target string) []packageInfo {
+func loadPackages(cfg *packages.Config, target string) ([]packageInfo, error) {
 	pkgs, err := packages.Load(cfg, target)
 	if err != nil || packages.PrintErrors(pkgs) > 0 {
-		log.Fatal("error loading packages")
+		return nil, fmt.Errorf("loading packages: %v", err)
 	}
 
 	packages := make([]packageInfo, 0)
@@ -87,13 +97,13 @@ func loadPackages(cfg *packages.Config, target string) []packageInfo {
 		}
 	}
 
-	return packages
+	return packages, nil
 }
 
-func loadHooks(cfg *packages.Config) hooks {
+func loadHooks(cfg *packages.Config) (hooks, error) {
 	pkgs, err := packages.Load(cfg, ".")
 	if err != nil || len(pkgs) == 0 {
-		log.Fatal("error loading root package")
+		fmt.Errorf("loading root package: %v", err)
 	}
 
 	hooks := hooks{}
@@ -128,5 +138,5 @@ func loadHooks(cfg *packages.Config) hooks {
 		}
 	}
 
-	return hooks
+	return hooks, nil
 }

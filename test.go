@@ -125,7 +125,7 @@ func Command(command string, args ...string) func(data map[string]string) (strin
 		if len(strings.TrimSpace(outStr)) > 0 {
 			numLines++
 			fmt.Print("\r", outStr, "\nContinue with Enter")
-		}else{
+		} else {
 			fmt.Print("\rContinue with Enter")
 		}
 		reader.ReadString('\n')

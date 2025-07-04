@@ -2,12 +2,16 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"text/template"
 	"time"
+)
+
+const (
+	errorExit   = 1
+	badArgument = 2
 )
 
 type data struct {
@@ -18,28 +22,37 @@ type data struct {
 
 func main() {
 	wd, _ := os.Getwd()
+	if len(os.Args) != 1 {
+		fmt.Println("Usage: e2r <pattern>\n. current package\n./tests specific package\n./tests.go specific file\n./... current package recursively")
+		os.Exit(badArgument)
+	}
 	pattern := os.Args[1]
-	hooks, packages := load(wd, pattern)
+	hooks, packages, err := load(wd, pattern)
+	if err != nil {
+		fmt.Printf("Error setting up runner: %v", err)
+		os.Exit(errorExit)
+	}
 	data := data{time.Now().Unix(), hooks, packages}
-	fmt.Printf("%+v\n", data)
 
 	dir, err := os.MkdirTemp("", "e2e-runner-*")
 	if err != nil {
-		log.Fatalf("Error seting up runner: %v", err)
+		fmt.Printf("Error setting up runner: %v", err)
+		os.Exit(errorExit)
 	}
 	defer os.RemoveAll(dir)
 
 	path := filepath.Join(dir, "runner.go")
 	file, err := os.Create(path)
 	if err != nil {
-		log.Fatalf("Error seting up runner: %v", err)
+		fmt.Printf("Error setting up runner: %v", err)
+		os.Exit(errorExit)
 	}
-	fmt.Println(path)
 	defer file.Close()
 
 	err = template.Must(template.New("runner").Parse(runner)).Execute(file, data)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("Error setting up runner: %v ", err)
+		os.Exit(errorExit)
 	}
 
 	cmd := exec.Command("go", "run", path)
@@ -48,6 +61,7 @@ func main() {
 	cmd.Stdin = os.Stdin
 	err = cmd.Run()
 	if err != nil {
-		log.Fatalf("Error executing runner: %v", err)
+		fmt.Printf("Error executing runner: %v", err)
+		os.Exit(errorExit)
 	}
 }
