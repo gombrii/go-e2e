@@ -22,8 +22,8 @@ type data struct {
 
 func main() {
 	wd, _ := os.Getwd()
-	if len(os.Args) != 1 {
-		fmt.Println("Usage: e2r <pattern>\n. current package\n./tests specific package\n./tests.go specific file\n./... current package recursively")
+	if len(os.Args) != 2 {
+		fmt.Println("Usage: e2r <pattern>\nEg.\ne2r . current package\ne2r ./tests specific package\ne2r ./tests.go specific file\ne2r ./... current package recursively")
 		os.Exit(badArgument)
 	}
 	pattern := os.Args[1]
