@@ -116,7 +116,7 @@ func loadHooks(cfg *packages.Config) hooks {
 					}
 				}
 			case "AfterRun":
-				if fn.Type.Results == nil && len(fn.Type.Params.List) == 1 && len(fn.Type.Results.List) == 0 {
+				if fn.Type.Results == nil && len(fn.Type.Params.List) == 1 {
 					param := root.TypesInfo.TypeOf(fn.Type.Params.List[0].Type)
 					if iface, ok := param.Underlying().(*types.Interface); ok && iface.NumMethods() == 0 {
 						hooks.AfterRun = "AfterRun"
