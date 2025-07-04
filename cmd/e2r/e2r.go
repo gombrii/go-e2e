@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"text/template"
 	"time"
-
-	"github.com/gombrii/go-e2e"
 )
 
 const (
@@ -18,16 +16,17 @@ const (
 
 type data struct {
 	Noise    int64
-	Hooks    hooks
+	Setup    setup
 	Packages []packageInfo
 }
 
 func main() {
 	wd, _ := os.Getwd()
 	var pattern string
+	var env string
 	switch len(os.Args) {
 	case 3:
-		e2e.Env = os.Args[2]
+		env = os.Args[2]
 		fallthrough
 	case 2:
 		pattern = os.Args[1]
@@ -36,13 +35,12 @@ func main() {
 		os.Exit(badArgument)
 	}
 
-	hooks, packages, err := load(wd, pattern)
+	setup, packages, err := load(wd, pattern)
 	if err != nil {
 		fmt.Printf("Error setting up runner: %v", err)
 		os.Exit(errorExit)
 	}
-	data := data{time.Now().Unix(), hooks, packages}
-
+	data := data{time.Now().Unix(), setup, packages}
 	dir, err := os.MkdirTemp("", "e2e-runner-*")
 	if err != nil {
 		fmt.Printf("Error setting up runner: %v", err)
@@ -64,7 +62,7 @@ func main() {
 		os.Exit(errorExit)
 	}
 
-	cmd := exec.Command("go", "run", path)
+	cmd := exec.Command("go", "run", path, env, setup.JSONData)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

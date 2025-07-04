@@ -3,8 +3,8 @@ package main
 var runner = `package main
 
 import (
-{{- if .Hooks.PkgPath }}
-	{{ .Hooks.PkgName }} "{{ .Hooks.PkgPath }}"
+{{- if .Setup.PkgPath }}
+	{{ .Setup.PkgName }} "{{ .Setup.PkgPath }}"
 {{- end }}
 {{- range .Packages }}
 	{{ .PkgName }} "{{ .PkgPath }}"
@@ -14,11 +14,11 @@ import (
 
 func main() {
 	e2e{{ .Noise }}.Runner{
-	{{- if .Hooks.BeforeRun}}
-		BeforeRun: {{ .Hooks.PkgName }}.{{ .Hooks.BeforeRun }},
+	{{- if .Setup.BeforeRun}}
+		BeforeRun: {{ .Setup.PkgName }}.{{ .Setup.BeforeRun }},
 	{{- end }}
-	{{- if .Hooks.AfterRun }}
-		AfterRun: {{ .Hooks.PkgName }}.{{ .Hooks.AfterRun }},
+	{{- if .Setup.AfterRun }}
+		AfterRun: {{ .Setup.PkgName }}.{{ .Setup.AfterRun }},
 	{{- end }}
 	}.Run(
 {{- range .Packages }}
