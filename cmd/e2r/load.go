@@ -160,9 +160,7 @@ func loadSetup(cfg *packages.Config) (setup, error) {
 								if unquoted, err := strconv.Unquote(strVal); err == nil {
 									strVal = unquoted
 								}
-								if envMap[env] == nil {
-									envMap[env] = make(map[string]string)
-								}
+								envMap[env] = make(map[string]string)
 								envMap[env][service] = strVal
 							}
 						}
@@ -171,7 +169,7 @@ func loadSetup(cfg *packages.Config) (setup, error) {
 			}
 		}
 	}
-	// Marshal envMap to JSON and store in hooks.JSONData
+
 	if len(envMap) > 0 {
 		if data, err := json.Marshal(envMap); err == nil {
 			hooks.JSONData = string(data)

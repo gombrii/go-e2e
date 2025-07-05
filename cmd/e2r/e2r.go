@@ -14,6 +14,11 @@ const (
 	badArgument = 2
 )
 
+const (
+	patternArg   = 1
+	envArg = 2
+)
+
 type data struct {
 	Noise    int64
 	Setup    setup
@@ -26,24 +31,24 @@ func main() {
 	var env string
 	switch len(os.Args) {
 	case 3:
-		env = os.Args[2]
+		env = os.Args[envArg]
 		fallthrough
 	case 2:
-		pattern = os.Args[1]
+		pattern = os.Args[patternArg]
 	default:
-		fmt.Println("Usage: e2r <pattern>\nEg.\ne2r . current package\ne2r ./tests specific package\ne2r ./tests.go specific file\ne2r ./... current package recursively")
+		fmt.Println("Usage: e2r <pattern> [env]\nEg.\ne2r . current package\ne2r ./tests specific package\ne2r ./tests.go specific file\ne2r ./... current package recursively\ne2r ./... specific env")
 		os.Exit(badArgument)
 	}
 
 	setup, packages, err := load(wd, pattern)
 	if err != nil {
-		fmt.Printf("Error setting up runner: %v", err)
+		fmt.Printf("Error setting up runner: %v\n", err)
 		os.Exit(errorExit)
 	}
 	data := data{time.Now().Unix(), setup, packages}
 	dir, err := os.MkdirTemp("", "e2e-runner-*")
 	if err != nil {
-		fmt.Printf("Error setting up runner: %v", err)
+		fmt.Printf("Error setting up runner: %v\n", err)
 		os.Exit(errorExit)
 	}
 	defer os.RemoveAll(dir)
@@ -51,14 +56,14 @@ func main() {
 	path := filepath.Join(dir, "runner.go")
 	file, err := os.Create(path)
 	if err != nil {
-		fmt.Printf("Error setting up runner: %v", err)
+		fmt.Printf("Error setting up runner: %v\n", err)
 		os.Exit(errorExit)
 	}
 	defer file.Close()
 
 	err = template.Must(template.New("runner").Parse(runner)).Execute(file, data)
 	if err != nil {
-		fmt.Printf("Error setting up runner: %v ", err)
+		fmt.Printf("Error setting up runner: %v\n", err)
 		os.Exit(errorExit)
 	}
 
@@ -68,7 +73,7 @@ func main() {
 	cmd.Stdin = os.Stdin
 	err = cmd.Run()
 	if err != nil {
-		fmt.Printf("Error executing runner: %v", err)
+		fmt.Printf("Error executing runner: %v\n", err)
 		os.Exit(errorExit)
 	}
 }

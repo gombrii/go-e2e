@@ -4,23 +4,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
+)
+
+const errorExit = 1
+
+const (
+	envArg = 1
+	mapArg = 2
 )
 
 var addrMap = map[string]map[string]string{}
 
 func Addr(service string) string {
 	if len(addrMap) == 0 {
-		if err := json.Unmarshal([]byte(os.Args[2]), &addrMap); err != nil {
-			fmt.Printf("Error reading addresses: %v", err)
-			os.Exit(1)
+		if err := json.Unmarshal([]byte(os.Args[mapArg]), &addrMap); err != nil {
+			fmt.Printf("Error reading addresses: %v\n", err)
+			os.Exit(errorExit)
 		}
 	}
 
-	addr, ok := addrMap[strings.ToLower(os.Args[1])][strings.ToLower(service)]
+	addr, ok := addrMap[os.Args[envArg]][service]
 	if !ok {
-		fmt.Printf("Error reading addresses: %v", fmt.Errorf("no address found for service %q and environment %q", service, os.Args[1]))
-		os.Exit(1)
+		fmt.Printf("Error reading addresses: %v", fmt.Errorf("no address found for service %q and environment %q\n", service, os.Args[envArg]))
+		os.Exit(errorExit)
 
 	}
 
