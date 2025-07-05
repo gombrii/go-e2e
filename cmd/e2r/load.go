@@ -155,13 +155,16 @@ func loadSetup(cfg *packages.Config) (setup, error) {
 							if len(matches) == 3 {
 								service := strings.ToLower(matches[1])
 								env := strings.ToLower(matches[2])
-								// Unquote the string literal value
 								strVal := val.Value
+
 								if unquoted, err := strconv.Unquote(strVal); err == nil {
 									strVal = unquoted
 								}
-								envMap[env] = make(map[string]string)
-								envMap[env][service] = strVal
+
+								if envMap[service] == nil {
+									envMap[service] = make(map[string]string)
+								}
+								envMap[service][env] = strVal
 							}
 						}
 					}
@@ -171,6 +174,7 @@ func loadSetup(cfg *packages.Config) (setup, error) {
 	}
 
 	if len(envMap) > 0 {
+		fmt.Println(envMap)
 		if data, err := json.Marshal(envMap); err == nil {
 			hooks.JSONData = string(data)
 		}
