@@ -15,8 +15,8 @@ const (
 )
 
 const (
-	patternArg   = 1
-	envArg = 2
+	patternArg = 1
+	envArg     = 2
 )
 
 type data struct {
@@ -67,7 +67,7 @@ func main() {
 		os.Exit(errorExit)
 	}
 
-	cmd := exec.Command("go", "run", path, env, setup.JSONData)
+	cmd := exec.Command("go", "run", path, env)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

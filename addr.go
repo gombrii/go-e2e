@@ -1,38 +1,42 @@
 package e2e
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"strings"
 )
 
-const errorExit = 1
+var EnvArg = ""
 
-const (
-	envArg = 1
-	mapArg = 2
-)
+type AddrReg map[string]map[string]string
 
-var addrMap = map[string]map[string]string{}
+func New() AddrReg {
+	return AddrReg{}
+}
 
-func Addr(service string) string {
-	service = strings.ToLower(service)
-	env := os.Args[envArg]
+func (r AddrReg) Reg(env, svc, baseAddr string) AddrReg {
+	env = strings.ToLower(env)
+	svc = strings.ToLower(svc)
 
-	if len(addrMap) == 0 {
-		if err := json.Unmarshal([]byte(os.Args[mapArg]), &addrMap); err != nil {
-			fmt.Printf("Error reading addresses: %v\n", err)
-			os.Exit(errorExit)
-		}
+	if _, ok := r[env]; !ok {
+		r[env] = make(map[string]string)
 	}
 
-	addr, ok := addrMap[service][env]
-	if !ok {
-		fmt.Printf("Error reading addresses: %v\n", fmt.Errorf("no address found for service %q and environment %q", service, env))
-		os.Exit(errorExit)
+	r[env][svc] = baseAddr
 
+	return r
+}
+
+func (r AddrReg) Get(env, svc, path string) string {
+	env = strings.ToLower(env)
+	svc = strings.ToLower(svc)
+
+	return r[env][svc] + path
+}
+
+func Env() string {
+	if EnvArg == "" {
+		EnvArg = os.Args[1]
 	}
 
-	return addr
+	return EnvArg
 }
