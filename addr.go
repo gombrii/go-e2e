@@ -7,13 +7,13 @@ import (
 
 var EnvArg = ""
 
-type AddrReg map[string]map[string]string
+type AddrStore map[string]map[string]string
 
-func New() AddrReg {
-	return AddrReg{}
+func Addrs() AddrStore {
+	return AddrStore{}
 }
 
-func (r AddrReg) Reg(env, svc, baseAddr string) AddrReg {
+func (r AddrStore) Reg(env, svc, baseAddr string) AddrStore {
 	env = strings.ToLower(env)
 	svc = strings.ToLower(svc)
 
@@ -26,7 +26,7 @@ func (r AddrReg) Reg(env, svc, baseAddr string) AddrReg {
 	return r
 }
 
-func (r AddrReg) Get(env, svc, path string) string {
+func (r AddrStore) Get(env, svc, path string) string {
 	env = strings.ToLower(env)
 	svc = strings.ToLower(svc)
 
