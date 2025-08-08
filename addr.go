@@ -1,42 +1,30 @@
 package e2e
 
 import (
+	"fmt"
 	"os"
-	"strings"
 )
 
-var EnvArg = ""
+var env = ""
 
-type AddrStore map[string]map[string]string
+type services map[string]string
+type AddressBook map[string]services
 
-func Addrs() AddrStore {
-	return AddrStore{}
+var addrs AddressBook
+
+func SetAddressBook(book AddressBook){
+	addrs = book
 }
 
-func (r AddrStore) Reg(env, svc, baseAddr string) AddrStore {
-	env = strings.ToLower(env)
-	svc = strings.ToLower(svc)
-
-	if _, ok := r[env]; !ok {
-		r[env] = make(map[string]string)
+func Addr(svc string) string {
+	if env == "" {
+		env = os.Args[1]
 	}
 
-	r[env][svc] = baseAddr
-
-	return r
-}
-
-func (r AddrStore) Get(env, svc, path string) string {
-	env = strings.ToLower(env)
-	svc = strings.ToLower(svc)
-
-	return r[env][svc] + path
-}
-
-func Env() string {
-	if EnvArg == "" {
-		EnvArg = os.Args[1]
+	if addr, ok := addrs[env][svc]; !ok {
+		panic(fmt.Sprintf("Attempt access address for combination of env %q and svc %q that does not exist", env, svc))
+	} else {
+		return addr
 	}
 
-	return EnvArg
 }
