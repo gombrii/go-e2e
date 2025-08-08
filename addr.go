@@ -7,12 +7,11 @@ import (
 
 var env = ""
 
-type services map[string]string
-type AddressBook map[string]services
+type AddressBook map[string]map[string]string
 
 var addrs AddressBook
 
-func SetAddressBook(book AddressBook){
+func SetAddressBook(book AddressBook) {
 	addrs = book
 }
 
@@ -26,5 +25,12 @@ func Addr(svc string) string {
 	} else {
 		return addr
 	}
+}
 
+func EnvAddr(env, svc string) string {
+	if addr, ok := addrs[env][svc]; !ok {
+		panic(fmt.Sprintf("Attempt access address for combination of env %q and svc %q that does not exist", env, svc))
+	} else {
+		return addr
+	}
 }
