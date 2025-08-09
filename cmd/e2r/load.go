@@ -5,6 +5,8 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"path/filepath"
+	"strings"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -27,9 +29,9 @@ type exportedVar struct {
 	TypeName string
 }
 
-func load(wd, target string) (setup, []packageInfo, error) {
+func load(wd, pattern string) (setup, []packageInfo, error) {
 	cfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo,
+		Mode: packages.NeedName | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedFiles,
 		Dir:  wd,
 	}
 
@@ -38,16 +40,18 @@ func load(wd, target string) (setup, []packageInfo, error) {
 		return setup{}, nil, err
 	}
 
-	pkgs, err := loadPackages(cfg, target)
+	pkgs, err := loadPackages(cfg, wd, pattern)
 	if err != nil {
 		return setup{}, nil, err
 	}
+	fmt.Println(pkgs)
 
 	return hks, pkgs, nil
 }
 
-func loadPackages(cfg *packages.Config, target string) ([]packageInfo, error) {
-	pkgs, err := packages.Load(cfg, target)
+func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, error) {
+	pattern, isFile, targetFile := normalize(wd, pattern)
+	pkgs, err := packages.Load(cfg, pattern)
 	if err != nil || packages.PrintErrors(pkgs) > 0 {
 		return nil, fmt.Errorf("loading packages: %v", err)
 	}
@@ -57,6 +61,24 @@ func loadPackages(cfg *packages.Config, target string) ([]packageInfo, error) {
 	for _, pkg := range pkgs {
 		var exportedVars []exportedVar
 		for _, file := range pkg.Syntax {
+			if isFile {
+				// Resolve the actual filename for this *ast.File from the package fileset.
+				tf := pkg.Fset.File(file.Pos())
+				if tf == nil {
+					continue
+				}
+				name := tf.Name()
+				if !filepath.IsAbs(name) {
+					absName, err := filepath.Abs(name)
+					if err != nil {
+						continue
+					}
+					name = absName
+				}
+				if filepath.Clean(name) != targetFile {
+					continue
+				}
+			}
 			for _, decl := range file.Decls {
 				gen, ok := decl.(*ast.GenDecl)
 				if !ok || gen.Tok != token.VAR {
@@ -139,4 +161,14 @@ func loadSetup(cfg *packages.Config) (setup, error) {
 	}
 
 	return hooks, nil
+}
+
+func normalize(wd, target string) (dir string, isFile bool, fileAbs string) {
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(wd, target)
+	}
+	if strings.HasSuffix(target, ".go") {
+		return filepath.Dir(target), true, filepath.Clean(target)
+	}
+	return target, false, ""
 }
