@@ -44,7 +44,6 @@ func load(wd, pattern string) (setup, []packageInfo, error) {
 	if err != nil {
 		return setup{}, nil, err
 	}
-	fmt.Println(pkgs)
 
 	return hks, pkgs, nil
 }
