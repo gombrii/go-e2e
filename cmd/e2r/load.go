@@ -50,7 +50,7 @@ func load(wd, pattern string) (setup, []packageInfo, error) {
 }
 
 func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, error) {
-	pattern, isFile, targetFile := normalize(wd, pattern)
+	pattern, targetFile := separate(wd, pattern)
 	pkgs, err := packages.Load(cfg, pattern)
 	if err != nil || packages.PrintErrors(pkgs) > 0 {
 		return nil, fmt.Errorf("loading packages: %v", err)
@@ -61,8 +61,7 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 	for _, pkg := range pkgs {
 		var exportedVars []exportedVar
 		for _, file := range pkg.Syntax {
-			if isFile {
-				// Resolve the actual filename for this *ast.File from the package fileset.
+			if targetFile != "" {
 				tf := pkg.Fset.File(file.Pos())
 				if tf == nil {
 					continue
@@ -163,12 +162,12 @@ func loadSetup(cfg *packages.Config) (setup, error) {
 	return hooks, nil
 }
 
-func normalize(wd, target string) (dir string, isFile bool, fileAbs string) {
+func separate(wd, target string) (dir string, file string) {
 	if !filepath.IsAbs(target) {
 		target = filepath.Join(wd, target)
 	}
 	if strings.HasSuffix(target, ".go") {
-		return filepath.Dir(target), true, filepath.Clean(target)
+		return filepath.Dir(target), filepath.Clean(target)
 	}
-	return target, false, ""
+	return target, ""
 }
