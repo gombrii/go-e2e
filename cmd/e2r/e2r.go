@@ -9,6 +9,23 @@ import (
 	"time"
 )
 
+const usageInstructions = `Usage: e2r <pattern> [env]
+
+<pattern> follows the same rules as go test:
+  .            current package
+  ./tests      specific package
+  ./tests.go   specific file
+  ./...        current package and all subpackages
+
+[env] is optional:
+  Specify an environment name (e.g. DEV, PROD) to pass to your tests.
+
+Examples:
+  e2r .                # Run tests in current package
+  e2r ./tests          # Run tests in ./tests
+  e2r ./tests.go       # Run tests only in tests.go
+  e2r ./... DEV        # Run tests recursively, passing env=DEV`
+
 const (
 	errorExit   = 1
 	badArgument = 2
@@ -36,7 +53,7 @@ func main() {
 	case 2:
 		pattern = os.Args[patternArg]
 	default:
-		fmt.Println("Usage: e2r <pattern> [env]\nEg.\ne2r . current package\ne2r ./tests specific package\ne2r ./tests.go specific file\ne2r ./... current package recursively\ne2r ./... specific env")
+		fmt.Println(usageInstructions)
 		os.Exit(badArgument)
 	}
 
