@@ -7,7 +7,7 @@ This is just a small library I mainly wrote over a couple of days one weekend to
 
 Go-e2e was written to be a quick and concurrent facilitator of HTTP API tests.
 
-There are two parts to this projects, which are also located in two separate packages: e2e and e2r (main). e2e is the library used to define (and run) test cases while e2r contains the CLI appliction that is used to scan for test cases defined using e2e and initiate an execution.
+There are two parts to this projects, a library and a CLI tool, which are located in two separate packages: e2e (module root) and e2r (actually package main). e2e is the library used to define and run test cases while e2r contains the CLI appliction that is used to scan for test cases defined using e2e and initiate an execution.
 
 ## e2e
 e2e is a library letting you define HTTP API tests. Tests are most easily run using the e2r command as explained later. But tests can also be run programmatically by creating and starting a runner. To do this create an empty go-module with a main fuction, create a `Runner` and call `Run` on a list of test sets you've declared yourself. 
@@ -182,26 +182,55 @@ e2r ./...
 
 e2r will look for any exported variable of type Sequence or Suite declared within any of the packages falling within the pattern provided to the cammand. e2r reads these declarations and generates and runs a temporary runnable that references these variables. The remporary runnable will be removed after being run.
 
-### AddrStore
-There is a second (optional) command that e2r currently takes, Env. This is to enable the possibility for the user to be able to be able to write tests once and run them for multiple different environments. It is not uncommon to want to test an API for multiple different environment, for example development, pre production and production. Eg:
+### AddressBook
+There is a second (optional) argument that e2r currently takes, `env`. This is to enable the possibility for the user to write tests once and run them targeted toward multiple different environments. It is not uncommon to for example first want to run tests against a development environment, then later a pre production environment and a production environment. Eg:
 
 ```shell
 e2r ./... dev
 ```
 
-By providing the command with a second argument, the value of this argument will be available at runtime.
+By providing the e2r with a second argument, the value of this argument will be available to the e2e engine at runtime.
 
-To gain access to the value passed as an argument the e2e library exposes a function `Env`. e2e also exposes a helper type `AddrStore`, instantiated via the exposed function `Addrs`. AddrStore is meant to be created in your project as a variable using a chained call that you can then reference in your tests. Eg.
+e2e uses this value to perform lookups in what's called the `AddressBook`, which is simply a nested `map` which you can register to the engine at startup.
 
 ```go
-var Addrs = e2e.Addrs().
-	Reg("local", "login", "localhost:9999").
-	Reg("dev", "login", "dev.klick.klock")
+func init() {
+	e2e.SetAddressBook(e2e.AddressBook{
+		"local": {
+			"authservice":    "https://localhost:8080/api/v1/auth",
+			"userservice":    "https://localhost:8081/api/v1/users",
+			"paymentservice": "https://localhost:8082/api/v1/pay",
+		},
+		"dev": {
+			"authservice":    "https://dev.mysite-test.com/api/v1/auth",
+			"userservice":    "https://dev.mysite-test.com/api/v1/users",
+			"paymentservice": "https://dev.mysite-test.com/api/v1/pay",
+		},
+		"prod": {
+			"authservice":    "https://mysite.com/api/v1/auth",
+			"userservice":    "https://mysite.com/api/v1/users",
+			"paymentservice": "https://mysite.com/api/v1/pay",
+		},
+	})
+}
 ```
 
-Each call to `Reg` will register a new address which can be dynamically used in your tests. Reg takes three strings, the environment name for which you want this address to be active, the name of the service for which this address will be used for this environment, and lastly the actuall (base) address.
+> Note that the call to `SetAddressBook` needs to be within your module's `init` function.
 
-To access an address in a test declaration, instead of providing a string URL like normal you simply provide a call to the `Get` method in tour AddrStore, eg. `Addr.Get(e2e.Env(), "login", "/user")`. The first argument fetches the env argument passed to the e2r command, the second argument is the service and the third argument is whatever path you want to tack on to the address. if no path is needed simply pass `""`.
+
+Having done this the addresses of the AddressBook will be available for injection in your tests by calling the `Addr` function and providing the name of a service. e2e will use that service name in combination with whatever environment was passed to the e2r command to lookup the base address of the service. To append a path simply append it with `+` or use `fmt.Sprint`. 
+
+```go
+	{
+		Request: e2e.Request{
+			Method: "POST",
+			URL:    e2e.Addr("paymentservice") + "/creditcard",
+		},
+		Expect: e2e.Expect{
+			Status: 200,
+		},
+	},
+```
 
 ### Setup and teardown
 As mentioned under the first example in [e2e](#e2e) the test runner can take as arguments a setup function and a teardown function. When running tests using e2r these can exist as well. The difference is that they'll not be provided anywhere. Instead they simply have to be declared and exported in the root package using the signatures `func BeforeRun() any` and `func AfterRun(any)` and they will both be automatically run before and after a test session respecively.
