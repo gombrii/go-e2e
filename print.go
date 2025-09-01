@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"strings"
@@ -46,13 +48,40 @@ func resultText(success bool) string {
 	return red("FAIL")
 }
 
-func format(data []byte) string {
+func format(data []byte, contentType string) string {
+	planB := strings.TrimSpace(string(data)) + "\n"
 	var out bytes.Buffer
-	err := json.Indent(&out, data, "", "  ")
-	if err != nil {
-		return strings.TrimSpace(string(data)) + "\n"
+
+	switch {
+	case strings.Contains(contentType, "json"):
+		err := json.Indent(&out, data, "", "  ")
+		if err != nil {
+			return planB
+		}
+		return strings.TrimSpace(out.String()) + "\n"
+	case strings.Contains(contentType, "xml"):
+		decoder := xml.NewDecoder(bytes.NewReader(data))
+		encoder := xml.NewEncoder(&out)
+		encoder.Indent("", "  ")
+
+		for {
+			tok, err := decoder.Token()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return planB
+			}
+			if err := encoder.EncodeToken(tok); err != nil {
+				return planB
+			}
+		}
+		if err := encoder.Flush(); err != nil {
+			return planB
+		}
 	}
-	return strings.TrimSpace(out.String()) + "\n"
+
+	return out.String()
 }
 
 func drawProgressBar(results []result, total int) {

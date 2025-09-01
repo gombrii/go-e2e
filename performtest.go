@@ -85,7 +85,7 @@ func printReq(buf *bytes.Buffer, req Request) {
 		fmt.Fprintf(buf, "-> %s: %s\n", h.Key, h.Val)
 	}
 	if len(req.Body) > 0 {
-		fmt.Fprint(buf, "-> "+format([]byte(req.Body)))
+		fmt.Fprint(buf, "-> "+format([]byte(req.Body), req.Content))
 	}
 }
 func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Expect) {
@@ -99,7 +99,7 @@ func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Exp
 	}
 	formattedBody := ""
 	if len(body) > 0 {
-		formattedBody = "<- " + format(body)
+		formattedBody = "<- " + format(body, resp.Header.Get("Content-Type"))
 	}
 	fmt.Fprint(buf, formattedBody)
 }
