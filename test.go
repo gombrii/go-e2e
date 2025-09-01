@@ -46,6 +46,10 @@ type (
 )
 
 func (t test) run(client *http.Client, buf *bytes.Buffer, data map[string]string) (result testResult) {
+	if t.Request.Content != "" {
+		t.Request.Headers = append(t.Request.Headers, header{"Content-Type", t.Request.Content})
+	}
+
 	for _, action := range t.Before {
 		description, err := action(data)
 		fmt.Fprintf(buf, "Before test: %v\n", description)
