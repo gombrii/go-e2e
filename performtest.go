@@ -35,7 +35,11 @@ func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected E
 
 	printResp(buf, resp, body, expected)
 
-	parsedBody = parseBody(body, resp.Header.Get("Content-Type"))
+	parsedBody, err = parseBody(body, resp.Header.Get("Content-Type"))
+	if err != nil {
+		fmt.Fprintf(buf, "\n%s: parsing response body: %v\n", pink("ERROR"), err)
+		return map[string][]string{}, testResult{buf, false}
+	}
 
 	if err := assertStatus(expected.Status, resp.StatusCode); err != nil {
 		fmt.Fprintf(buf, "\n%s: asserting status: %v\n", pink("FAIL"), err)
@@ -142,7 +146,7 @@ func assertBody(expected Body, actual map[string][]string) error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("unexpected value of field %q,\nno match among: %v\nwant at least: %v", field, vals, want)
+			return fmt.Errorf("unexpected value of field %q,\nno match among: %v\nwant at least: %v", field, strings.Join(vals, ", "), want)
 		}
 	}
 	return nil
@@ -207,22 +211,26 @@ func xmlToFlat(b []byte) (map[string][]string, error) {
 	}
 }
 
-func parseBody(body []byte, contentType string) map[string][]string {
+func parseBody(body []byte, contentType string) (map[string][]string, error) {
 	flat := make(map[string][]string)
 
 	switch {
 	case strings.Contains(contentType, "json"):
 		var v any
-		if err := json.Unmarshal(body, &v); err == nil {
-			flattenJSON(v, "", flat)
+		err := json.Unmarshal(body, &v)
+		if err != nil {
+			return nil, fmt.Errorf("parsing JSON: %v", err)
 		}
+		flattenJSON(v, "", flat)
 	case strings.Contains(contentType, "xml"):
-		if m, err := xmlToFlat(body); err == nil {
-			flat = m
+		m, err := xmlToFlat(body)
+		if err != nil {
+			return nil, fmt.Errorf("parsing XML: %v", err)
 		}
+		flat = m
+	default:
+		return nil, fmt.Errorf("unsupported Tontent-Type %v", contentType)
 	}
 
-	// TODO: Needs error handling for when unmarshalling isn't possible or content-type is not supported
-
-	return flat
+	return flat, nil
 }
