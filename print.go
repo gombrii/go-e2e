@@ -49,16 +49,14 @@ func resultText(success bool) string {
 }
 
 func format(data []byte, contentType string) string {
-	planB := strings.TrimSpace(string(data)) + "\n"
 	var out bytes.Buffer
 
 	switch {
 	case strings.Contains(contentType, "json"):
 		err := json.Indent(&out, data, "", "  ")
 		if err != nil {
-			return planB
+			return strings.TrimSpace(string(data)) + "\n"
 		}
-		return strings.TrimSpace(out.String()) + "\n"
 	case strings.Contains(contentType, "xml"):
 		decoder := xml.NewDecoder(bytes.NewReader(data))
 		encoder := xml.NewEncoder(&out)
@@ -70,18 +68,18 @@ func format(data []byte, contentType string) string {
 				if err == io.EOF {
 					break
 				}
-				return planB
+				return strings.TrimSpace(string(data)) + "\n"
 			}
 			if err := encoder.EncodeToken(tok); err != nil {
-				return planB
+				return strings.TrimSpace(string(data)) + "\n"
 			}
 		}
 		if err := encoder.Flush(); err != nil {
-			return planB
+			return strings.TrimSpace(string(data)) + "\n"
 		}
 	}
 
-	return out.String()
+	return out.String() + "\n"
 }
 
 func drawProgressBar(results []result, total int) {
