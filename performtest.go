@@ -80,26 +80,26 @@ func makeRequest(client *http.Client, reqSetup Request) (*http.Response, error) 
 }
 
 func printReq(buf *bytes.Buffer, req Request) {
-	fmt.Fprintln(buf, "->", req.Method, req.URL)
+	fmt.Fprintln(buf, grey("->"), req.Method, req.URL)
 	for _, h := range req.Headers {
-		fmt.Fprintf(buf, "-> %s: %s\n", h.Key, h.Val)
+		fmt.Fprintf(buf, grey("-> ")+"%s: %s\n", h.Key, h.Val)
 	}
 	if len(req.Body) > 0 {
-		fmt.Fprint(buf, "-> "+format([]byte(req.Body), req.Content))
+		fmt.Fprint(buf, grey("-> ")+format([]byte(req.Body), req.Content))
 	}
 }
 func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Expect) {
-	fmt.Fprintln(buf, "<-", resp.StatusCode)
+	fmt.Fprintln(buf, grey("<-"), resp.StatusCode)
 	for k, v := range resp.Header {
 		if slices.ContainsFunc(expected.Headers, func(header header) bool {
 			return header.Key == k
 		}) {
-			fmt.Fprintf(buf, "<- %s: %s\n", k, strings.Join(v, "; "))
+			fmt.Fprintf(buf, grey("<- ")+"%s: %s\n", k, strings.Join(v, "; "))
 		}
 	}
 	formattedBody := ""
 	if len(body) > 0 {
-		formattedBody = "<- " + format(body, resp.Header.Get("Content-Type"))
+		formattedBody = grey("<- ") + format(body, resp.Header.Get("Content-Type"))
 	}
 	fmt.Fprint(buf, formattedBody)
 }

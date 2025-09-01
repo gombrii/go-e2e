@@ -41,6 +41,10 @@ func yellow(text ...any) string {
 	return fmt.Sprintf("\033[33m%v\033[0m", fmt.Sprint(text...))
 }
 
+func grey(text ...any) string {
+	return fmt.Sprintf("\033[38;5;244m%v\033[0m", fmt.Sprint(text...))
+}
+
 func resultText(success bool) string {
 	if success {
 		return green("SUCCESS")
@@ -77,6 +81,8 @@ func format(data []byte, contentType string) string {
 		if err := encoder.Flush(); err != nil {
 			return strings.TrimSpace(string(data)) + "\n"
 		}
+	default:
+		return strings.TrimSpace(string(data)) + "\n"
 	}
 
 	return out.String() + "\n"
