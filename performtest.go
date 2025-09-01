@@ -212,6 +212,10 @@ func xmlToFlat(b []byte) (map[string][]string, error) {
 }
 
 func parseBody(body []byte, contentType string) (map[string][]string, error) {
+	if len(body) == 0 {
+		return nil, nil
+	}
+
 	flat := make(map[string][]string)
 
 	switch {
@@ -219,17 +223,17 @@ func parseBody(body []byte, contentType string) (map[string][]string, error) {
 		var v any
 		err := json.Unmarshal(body, &v)
 		if err != nil {
-			return nil, fmt.Errorf("parsing JSON: %v", err)
+			return nil, err
 		}
 		flattenJSON(v, "", flat)
 	case strings.Contains(contentType, "xml"):
 		m, err := xmlToFlat(body)
 		if err != nil {
-			return nil, fmt.Errorf("parsing XML: %v", err)
+			return nil, err
 		}
 		flat = m
 	default:
-		return nil, fmt.Errorf("unsupported Tontent-Type %v", contentType)
+		return nil, fmt.Errorf("unsupported Content-Type %v", contentType)
 	}
 
 	return flat, nil

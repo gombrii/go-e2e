@@ -42,6 +42,27 @@ type (
 		Key string
 		Val string
 	}
+	// Body is a map representing expectations on response bodies.
+	// The keys match fields or paths to leafs in nested response bodies.
+	// Body supports both JSON and XML.
+	// 
+	// Eg.
+	//	{
+	// 		"field": {
+	//			"leaf": "value"	
+	//		}
+	// 	}
+	// 
+	// This JSON example matches `"field.leaf": "value"`. This asserts that "leaf" contains the 
+	// string "value". But it could also contain a lonoger string of which "value" is a part.
+	// 
+	//	<root>
+	// 		<item attr="attrval">value</item>
+	// 		<item>othervalue</item>
+	// 	</root>
+	// 
+	// `"root.item": "othervalue"` asserts that any value sharing the path contains "othervalue".
+	// `"root.item@attd": "attrval"` asserts attribute "attr" on "item".
 	Body map[string]any
 )
 
