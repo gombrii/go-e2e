@@ -67,10 +67,6 @@ func makeRequest(client *http.Client, reqSetup Request) (*http.Response, error) 
 		req.Header.Add(h.Key, h.Val)
 	}
 
-	if reqSetup.Content != "" {
-		req.Header.Set("Content-Type", reqSetup.Content)
-	}
-	
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("executing: %v", err)
