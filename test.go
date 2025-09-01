@@ -165,10 +165,10 @@ func inject(req Request, data map[string]string) Request {
 	return req
 }
 
-func capture(body map[string]any, data map[string]string, captors Captors) {
+func capture(body map[string][]string, data map[string]string, captors Captors) {
 	for _, c := range captors {
 		if val, ok := body[c]; ok {
-			data[c] = fmt.Sprint(val) ////TODO: Only loops through surface level fields.
+			data[c] = fmt.Sprint(val[0]) ////TODO: Only loops through surface level fields.
 		}
 	}
 }
