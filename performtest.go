@@ -152,20 +152,19 @@ func assertBody(expected Body, actual map[string][]string) error {
 	return nil
 }
 
-func flattenJSON(v any, prefix string, out map[string][]string) {
-	switch x := v.(type) {
+func flattenJSON(body any, prefix string, out map[string][]string) {
+	switch x := body.(type) {
 	case map[string]any:
-		for k, vv := range x {
-			p := k
+		for key, value := range x {
+			p := key
 			if prefix != "" {
-				p = prefix + "." + k
+				p = prefix + "." + key
 			}
-			flattenJSON(vv, p, out)
+			flattenJSON(value, p, out)
 		}
 	case []any:
-		for _, vv := range x {
-			// same prefix, no indices → collect all leaves under same path
-			flattenJSON(vv, prefix, out)
+		for _, values := range x {
+			flattenJSON(values, prefix, out)
 		}
 	default:
 		if prefix != "" {
@@ -176,7 +175,7 @@ func flattenJSON(v any, prefix string, out map[string][]string) {
 
 func xmlToFlat(b []byte) (map[string][]string, error) {
 	dec := xml.NewDecoder(bytes.NewReader(b))
-	out := map[string][]string{}
+	out := make(map[string][]string)
 	var stack []string
 	for {
 		tok, err := dec.Token()
@@ -189,11 +188,11 @@ func xmlToFlat(b []byte) (map[string][]string, error) {
 		switch t := tok.(type) {
 		case xml.StartElement:
 			stack = append(stack, t.Name.Local)
-			// attributes become path@attr
 			if len(t.Attr) > 0 {
-				key := strings.Join(stack, ".")
+				path := strings.Join(stack, ".")
 				for _, a := range t.Attr {
-					out[key+"@"+a.Name.Local] = append(out[key+"@"+a.Name.Local], a.Value)
+					key := path + "@" + a.Name.Local
+					out[key] = append(out[key], a.Value)
 				}
 			}
 		case xml.EndElement:
