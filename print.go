@@ -74,6 +74,9 @@ func format(data []byte, contentType string) string {
 				}
 				return strings.TrimSpace(string(data)) + "\n"
 			}
+			if t, ok := tok.(xml.CharData); ok && strings.TrimSpace(string(t)) == "" {
+				continue
+			}
 			if err := encoder.EncodeToken(tok); err != nil {
 				return strings.TrimSpace(string(data)) + "\n"
 			}
