@@ -3,48 +3,142 @@
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/gomsim/go-e2e)
 
 # Go-e2e
-This is just a small library I mainly wrote over a couple of days one weekend to test my own HTTP APIs. It's only written for my own personal gain. It's not tested and it only supports my own narrow set of requrements. It has since been complemented with a CLI application making usage easier.
+> Disclaimer: This is just a small library and an application I wrote to test my own HTTP APIs. It's only written for my own personal use and guarantees nothing. It's not tested and it only supports my own narrow set of requrements.
 
 Go-e2e was written to be a quick and concurrent facilitator of HTTP API tests.
 
-There are two parts to this projects, a library and a CLI tool, which are located in two separate packages: e2e (module root) and e2r (actually package main). e2e is the library used to define and run test cases while e2r contains the CLI appliction that is used to scan for test cases defined using e2e and initiate an execution.
+There are two parts to this projects, a library `e2e` and a CLI tool `e2r`. `e2e` is used to define test cases while `e2r` runs them.
 
-## e2e
-e2e is a library letting you define HTTP API tests. Tests are most easily run using the e2r command as explained later. But tests can also be run programmatically by creating and starting a runner. To do this create an empty go-module with a main fuction, create a `Runner` and call `Run` on a list of test sets you've declared yourself. 
+## Getting started
+The most minimal setup needed to run tests is a catalogue containing a `go.mod` file and one `.go` file. That setup will be used for this setup guide.
+
+Run these commands.
+
+```shell
+mkdir mytests
+cd mytests
+go mod init
+touch setup.go
+```
+
+You should then have this project catalogue.
+
+```
+mytests/
+├── go.mod
+└── setup.go
+```
+
+To create tests you will also need to depend on `github.com/gombrii/go-e2e`
+
+```shell
+# Inside catalogue mytests
+go get github.com/gombrii/go-e2e@latest
+```
+
+To run tests you either have to install `e2r` or run it with `go run` using its install URL `github.com/gombrii/go-e2e/cmd/e2r`.
+
+```shell
+go install github.com/gombrii/go-e2e/cmd/e2r@latest
+```
+
+With this basic structure you can define tests that you run with `e2r`. The `setup.go` file can contain any setup as well as any number of tests. For reasons that will be described later in this guide, not least of all simply organisational, you might want to define multiple files in multiple packages.
+
+Eg.
+```
+mytests/
+├── go.mod
+├── setup.go
+├── smoketests/
+│   ├── suite1.go
+│   ├── suite2.go
+│   └── suite3.go
+└── manualtests/
+    ├── suite1.go
+    ├── suite2.go
+    └── suite3.go
+```
+
+## e2r
+You can use the `e2r` CLI tool to run tests you have defined in your project.
+
+A test run can look something like this:
+
+![Test run](demo/image.png)
+
+### Usage
+
+```
+e2r <pattern> [env]
+```
+
+- `pattern` describes the location of the tests you want to run. It uses the same format as `go test`. To run all tests in the project pass `./...`. You can also run all tests in a package or all tests in a file by providing their respective paths, eg. `./smoketests` or `./smoketests/suite1.go` 
+- `env` is an optional string value that if passed can be used for runtime lookups in the [`Addressbook`](#addressbook-optional) provided by the `e2e` library. This enables quick switching between testing base URLs specific to different environments.
+
+Upon being run `e2r` will look for any exported variables of type [`Suite`](#suites) or [`Sequence`](#sequences) in the location targeted by the [`pattern`](#usage) provided and run them.
+
+### Setup and teardown (optional)
+There are two hooks that, if defined in the module root, will be run before and after each `e2r` run. These hooks can be used to perform any setup and/or teardown needed.
 
 ```go
-import (
-	"github.com/gomsim/go-e2e"
-)
+func BeforeRun() any {
+	// Any setup here
+}
 
-func main() {
-	e2e.Runner{}.Run(
-		AuthSuite,
-		EmailSuite,
-		NotificationsSuite,
-		UsersSuite,
-
-		LoginSequence,
-		RegisterUserSequence,
-		CreateEventSequence,
-	)
+func AfterRun(any) {
+	// Any teardown here 
 }
 ```
 
-> There is an optional setup and teardown you can provide as functions in the construction of the Runner. This is good if the running of your tests for example need some environment variables set. These functions are typically called `BeforeRun` and `AfterRun` 
+For `e2r` to run them make sure to match their respective signatures exactly. Take note that they are exported. Whatever is returned by `BeforeRun` is what will be passed to `AfterRun` and can be accessed using a type assertion. If `BeforeRun` is not declared but `AfterRun` is, then `nil` will be passed.
 
-When you run your app you will be presented with a progress bar which when filled will give way to a result summary as well as a prompt giving you the option to see only the logs of failed tests cases or to see the logs of all performed tests (lots of text).
+### AddressBook (optional)
+The `Addressbook` is a feature provided by `e2e` that enables runtime address lookup using a predefined addressbook in combination with the [`env`](#usage) parameter. This is to be able to make tests environment agnostic. Instead of an URL, a test will be targeted toward a service defined in the `Addressbook`. The `env` passed will then decide which instance of that service's URLs will be used.
 
-![Successful run](demo/image.png)
-
-But what is a "test"?
-
-### Tests
-So the whole point of the library is its ability to run test cases. Each `Test` normally consists of at least a `Request` and an `Expect`. The request describes the details of a single HTTP call to be made. The expect describes expectations of the HTTP response. Tests which receive HTTP responses that don't meet the expectations count as failures.
+`AddressBook` is a nested `map` which you can register with a call to `SetAddressBook` in the `init` hook in the project root.
 
 ```go
-e2e.Test{
-    Setup: e2e.Request{
+func init() {
+	e2e.SetAddressBook(e2e.AddressBook{
+		"local": {
+			"authservice":    "https://localhost:8080/api/v1/auth",
+			"userservice":    "https://localhost:8081/api/v1/users",
+			"paymentservice": "https://localhost:8082/api/v1/pay",
+		},
+		"dev": {
+			"authservice":    "https://dev.mysite-test.com/api/v1/auth",
+			"userservice":    "https://dev.mysite-test.com/api/v1/users",
+			"paymentservice": "https://dev.mysite-test.com/api/v1/pay",
+		},
+		"prod": {
+			"authservice":    "https://mysite.com/api/v1/auth",
+			"userservice":    "https://mysite.com/api/v1/users",
+			"paymentservice": "https://mysite.com/api/v1/pay",
+		},
+	})
+}
+```
+
+Having registred an `Addressbook` makes it possible to make lookups in tests like so `e2e.Addr("paymentservice")`. Paths can easily be appended using the plus operator.
+
+```go
+e2e.Addr("paymentservice") + "/creditcard"
+
+// Alternatively e2e.EnvAddr can be used to override the `env` parameter
+e2e.EnvAddr("dev", "paymentservice") + "/creditcard"
+```
+
+## e2e
+The library needed to define tests consists of a single package `e2e`.
+
+> Remember tests need to be declared in exported variables. The names of the variables do not matter.
+
+### Tests
+A test normally consists of at least a `Request` and an `Expect`. The `Request` defines a single HTTP request to be made. The `Expect` defines expectations of the HTTP response. Tests which receive HTTP responses that don't meet the expectations count as failures.
+
+```go
+{
+    Request: e2e.Request{
         Method: "GET",
         URL:    "mydomain.com/ping",
     },
@@ -54,8 +148,62 @@ e2e.Test{
 }
 ```
 
+There are many more parameters to a test.
+
+```go
+{
+	Before:  e2e.Before{e2e.Input("password", "$pwd")}, // Advanced property
+	Request: e2e.Request{
+		Method:  "POST",
+		URL:     "mydomain.com",
+		CTX:     ctx,
+		Headers: e2e.Headers{
+			{Key: "Accept", Val: "application/json"},
+		},
+		Content: "application/json",
+		Body:    `{"userId": "1", "pass": "$pwd"}`,
+	},
+	Expect: e2e.Expect{
+		Status:  200,
+		Body: e2e.Body{
+			"userId":    1,
+			"id":        1,
+			"title":     "delectus aut autem",
+			"completed": "false",
+		},
+		Headers: e2e.Headers{
+			{Key: "Content-Type", Val: "application/json"}
+		},
+	},
+	Capture: e2e.Captors{"completed"}, // Advanced property
+}
+```
+
+In the `Expect` block only the parts included will be used to validate the HTTP response. If for example `Status` is left out any response status is concidered valid. For all components of the `Expect` block keys are required to match exactly while values only need to be part of the actual value.
+
+Eg.
+```go
+Expect: e2e.Expect{
+	Body: e2e.Body{
+		"title": "delectus",
+	},
+},
+```
+
+In the above example the test would pass if the response body as a field "title" with a value of which "delectus" is a part. If title contained "delectus kolumplectus" the test would still pass. This is useful to be able to assert IDs that might contain some constant part and some dynamic part. However the key must match exactly for the test to pass. This makes it possible to simply test for the existance of a field without caring about the value by including `"title": ""`. The same goes for expected headers.
+
+#### Advanced
+`Before` and `Capture` are two special properties which enables actions to be performed before the execution of a test as well as response data to be captured.
+
+`Before` takes a list of before-actions. There are two types created using the two helper functions `Input` and `Command`.
+
+- `Input(text string, mapTo string)` will prompt the user to input a string value before the test is run. `text` is the prompt. `mapTo` is a key that can be referenced in the test using the `$`-prefix. In the example above `$pwd` is used to insert a password into the request body.
+- `Command(command string, args ...string)` will run a terminal command before the test is run. Its output will be displayed to the user after which the user will be prompted to press enter to continue. Usecases include fetching some local dynamic data, displaying a QR code, or anything else might be performed.
+
+The `Capture` property allows some data to be captured from the HTTP response in a test. This is discussed further in the [`Sequences`](#sequences) section.
+
 ### Suites
-To make testing somewhat feasible and organized tests can be gathered in sets of type `Suite`. A suite has a name and is a set of independent named tests with no order.
+Tests can not exist on their own but must be put in a type of suite. There are two types `Suite` and `Sequence`. `Suite` is the simplest one. A `Suite` has a name and a set of independent named tests with no order.
 
 ```go
 e2e.Suite{
@@ -97,7 +245,7 @@ e2e.Suite{
 ```
 
 ### Sequences
-Some tests require some setup. Or perhaps testing of one HTTP request requires information contained in the response to a different HTTP request. This is where type `Sequences` comes in. Sequences resemble suites in that they have a name and a collection of tests, but they differ in purpose. A sequence is unsurprisingly sequential meaning tests are run in the order they are declared. Tests within sequences work like steps. This is because tests, or steps, in a sequence are not indipendent but _interdependent_. They can take input and give output as well as perform pre test actions (tests in suites can also do this, but there is less incentive to do so). A bofore action can be two things, one of which is a manual input func (`Input`) declared within a step. It is useful when a step requires some external information in order to be performed, such as a pin code or some other information retrieved from a third source. When the tests are run the opportunity will be presented for the user to input the data as needed. The other before action is the ability for the step to run a terminal command (`Command`), such as a third party program, to for example expose a qr code, or such. Outputs from steps can be caught using a `Captor`. Captors are declared within a step to let it capture information contained within its HTTP response, such as an oid or URL, and let subsequent steps reference it to perform their own HTTP calls.
+A `Sequence` works similarly to a `Suite` but not exactly. Superficially the tests it contains are unnamed and are called steps. But importantly steps in a `Sequence` are run sequentially and in a common context. This means that data can be transferred from one step to the next and makes it possible to perform and test a chain of HTTP calls which build on eachother. The main mechanism to achieve this is the [captor](#advanced). A captor is a key listed in the `Capture` block of a test. If done the captor will capture the value of a field matching the catpr key in the body returned in the HTTP response in the test. The captured value can be referenced later in the `Sequence` using the `$`-prefix. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) before-action. Captured values can be referenced in all parts of a test, even in before-actions. This means that a token returned in an HTTP response in a test can be referenced in a `Command` before-action in a later test to display a QR code, for example.
 
 ```go
 e2e.Sequence{
@@ -112,24 +260,24 @@ e2e.Sequence{
 			},
 			Expect: e2e.Expect{
 				Status: 201,
-				Fields: e2e.Fields{
+				Body: e2e.Body{
 					"message": "OK"
 				},
 			},
 		},
 		{
 			Before: e2e.Before{
-				e2e.Input("finger print", "fingerprint"), // Propmpts the user for "finger print" and stores the input in a memory location called "fingerprint"
+				e2e.Input("finger print", "fingerprint"), // Propmpts the user for "finger print" and stores the input on the key "fingerprint"
 			},
 			Request: e2e.Request{
 				Method:  "POST",
 				URL:     "mydomain.com/fingerprint/apply",
 				Content: "application/json",
-				Body:    `{"print": "$fingerprint"}`, // References the stored "fingerprint"
+				Body:    `{"print": "$fingerprint"}`, // References the captured "fingerprint"
 			},
 			Expect: e2e.Expect{
 				Status: 200,
-				Fields: e2e.Fields{
+				Body: e2e.Body{
 					"token": "",
 				},
 			},
@@ -143,7 +291,7 @@ e2e.Sequence{
 			},
 			Expect: e2e.Expect{
 				Status: 200,
-				Fields: e2e.Fields{
+				Body: e2e.Body{
 					"url": "",
 				},
 			},
@@ -162,78 +310,10 @@ e2e.Sequence{
 }
 ```
 
-## e2r
-e2r is a CLI app or CLI command really just eliminating the need to create a separate application to run tests manually. Perhaps it sounds unnecessary, but there is a good reason for it. When defining tests there are two types of changes that can be made between runs, changes related to the domain of what is being tested and changes that only concern _what_ is currently being tested. So an example of the former is a change to the API being tested. Maybe you add a test, or refine a test. These are things you want stored in code, with which e2e provides you the oppertunity. The latter type of change concern things like which ones of all your tests you want to run right now, or within which environment you want to run your tests. Dev? Prod?
+### Use Suite or Sequence?
+Although they are similar they have some obvious and less obvious pros and cons respectively. The pros of Sequences are quite obvious in that they let tests share data between eachother. The drawback is that they run in sequence which is slower. Since tests in Suites are independent of eachother they can be run in parallell. If multiple Suites and Sequences are run in one go each Suite and Sequence will always run in parallell with eachother.
 
-The e2r cli command lets you define in code what the tests look like while letting you pass as arguments to the command what tests you want to run and within which environment.
-
-### Getting started
-To run the e2r command you first need to explicitly install it, even though you have already downloaded the library before.
-
-```shell
-go install github.com/gombrii/go-e2e/cmd/e2r@latest
-```
-
-You can then run it by standing in your project root, calling it and providing the path or pattern describing whatever packge of tests you want to run. The e2r command works just the same as the `go test` command in the way it interprets patterns. So if you want to run all tests in your module, simply provide it with `./...`
-
-```shell
-e2r ./...
-```
-
-e2r will look for any exported variable of type Sequence or Suite declared within any of the packages falling within the pattern provided to the cammand. e2r reads these declarations and generates and runs a temporary runnable that references these variables. The remporary runnable will be removed after being run.
-
-### AddressBook
-There is a second (optional) argument that e2r currently takes, `env`. This is to enable the possibility for the user to write tests once and run them targeted toward multiple different environments. It is not uncommon to for example first want to run tests against a development environment, then later a pre production environment and a production environment. Eg:
-
-```shell
-e2r ./... dev
-```
-
-By providing the e2r with a second argument, the value of this argument will be available to the e2e engine at runtime.
-
-e2e uses this value to perform lookups in what's called the `AddressBook`, which is simply a nested `map` which you can register to the engine at startup.
-
-```go
-func init() {
-	e2e.SetAddressBook(e2e.AddressBook{
-		"local": {
-			"authservice":    "https://localhost:8080/api/v1/auth",
-			"userservice":    "https://localhost:8081/api/v1/users",
-			"paymentservice": "https://localhost:8082/api/v1/pay",
-		},
-		"dev": {
-			"authservice":    "https://dev.mysite-test.com/api/v1/auth",
-			"userservice":    "https://dev.mysite-test.com/api/v1/users",
-			"paymentservice": "https://dev.mysite-test.com/api/v1/pay",
-		},
-		"prod": {
-			"authservice":    "https://mysite.com/api/v1/auth",
-			"userservice":    "https://mysite.com/api/v1/users",
-			"paymentservice": "https://mysite.com/api/v1/pay",
-		},
-	})
-}
-```
-
-> Note that the call to `SetAddressBook` needs to be within your module's `init` function.
-
-
-Having done this the addresses of the AddressBook will be available for injection in your tests by calling the `Addr` function and providing the name of a service. e2e will use that service name in combination with whatever environment was passed to the e2r command to lookup the base address of the service. To append a path simply append it with `+` or use `fmt.Sprint`. 
-
-```go
-	{
-		Request: e2e.Request{
-			Method: "POST",
-			URL:    e2e.Addr("paymentservice") + "/creditcard",
-		},
-		Expect: e2e.Expect{
-			Status: 200,
-		},
-	},
-```
-
-### Setup and teardown
-As mentioned under the first example in [e2e](#e2e) the test runner can take as arguments a setup function and a teardown function. When running tests using e2r these can exist as well. The difference is that they'll not be provided anywhere. Instead they simply have to be declared and exported in the root package using the signatures `func BeforeRun() any` and `func AfterRun(any)` and they will both be automatically run before and after a test session respecively.
+> Last tip: Since any [beofore-action](#advanced) will require user input when running the test it is a good idea to think about how tests are organized in packages and files. It can be useful to have a separate catalogue of tests that can be run as a smoke suite without needing user input. Tests that require user input can instead be used to test more intricate features of an API.
 
 ## Concurrency and performance
-From my own manual testing it seems to scale pretty constantly and run whatever amount of tests in about a second, though it's only been tested on at most about 130 tests in one go.
+Since `go-e2e` is a concurrent tool tests don't scale linearly. From my own manual testing it seems to scale pretty constantly `O(1)` and run whatever amount of tests in about a second or two. `go-e2e` has been tested with at most about 370 tests.
