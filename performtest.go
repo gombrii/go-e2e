@@ -125,7 +125,7 @@ func assertHeaders(expected []header, actual http.Header) error {
 			}
 		}
 		if !hasValue {
-			return fmt.Errorf("missing value for %q. Want at least:%q", h.Key, h.Val)
+			return fmt.Errorf("missing value for %q. Want at least: %q", h.Key, h.Val)
 		}
 	}
 	return nil
@@ -165,6 +165,10 @@ func flattenJSON(body any, prefix string, out map[string][]string) {
 	case []any:
 		for _, values := range x {
 			flattenJSON(values, prefix, out)
+		}
+		// We want an empty array to count as a leaf
+		if len(x) == 0 {
+			out[prefix] = append(out[prefix], "[]")
 		}
 	default:
 		if prefix != "" {
