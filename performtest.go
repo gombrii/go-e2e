@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 )
 
 type testResult struct {
@@ -155,6 +156,10 @@ func assertBody(expected Body, actual map[string][]string) error {
 func flattenJSON(body any, prefix string, out map[string][]string) {
 	switch x := body.(type) {
 	case map[string]any:
+		// Adds entries for all non leaf nodes as well to be asserted with ""
+		if prefix != "" {
+			out[prefix] = []string{fmt.Sprintf("EXISTS_%d", time.Now().Unix())}
+		}
 		for key, value := range x {
 			p := key
 			if prefix != "" {
@@ -167,8 +172,8 @@ func flattenJSON(body any, prefix string, out map[string][]string) {
 			flattenJSON(values, prefix, out)
 		}
 		// We want an empty array to count as a leaf
-		if len(x) == 0 {
-			out[prefix] = append(out[prefix], "[]")
+		if prefix != "" && len(x) == 0 {
+			out[prefix] = append(out[prefix], fmt.Sprintf("EXISTS_%d", time.Now().Unix()))
 		}
 	default:
 		if prefix != "" {
