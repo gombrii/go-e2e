@@ -156,7 +156,7 @@ func assertBody(expected Body, actual map[string][]string) error {
 func flattenJSON(body any, prefix string, out map[string][]string) {
 	switch x := body.(type) {
 	case map[string]any:
-		// Adds entries for all non leaf nodes as well to be asserted with ""
+		// Adds entries for all non leaf nodes as well to be asserted with "" NOTE: perhaps switch to a more optimal solution
 		if prefix != "" {
 			out[prefix] = []string{fmt.Sprintf("EXISTS_%d", time.Now().Unix())}
 		}
@@ -171,7 +171,7 @@ func flattenJSON(body any, prefix string, out map[string][]string) {
 		for _, values := range x {
 			flattenJSON(values, prefix, out)
 		}
-		// We want an empty array to count as a leaf
+		// We want an empty array to count as a leaf NOTE: perhaps switch to a more optimal solution
 		if prefix != "" && len(x) == 0 {
 			out[prefix] = append(out[prefix], fmt.Sprintf("EXISTS_%d", time.Now().Unix()))
 		}
@@ -197,8 +197,10 @@ func xmlToFlat(b []byte) (map[string][]string, error) {
 		switch t := tok.(type) {
 		case xml.StartElement:
 			stack = append(stack, t.Name.Local)
+			path := strings.Join(stack, ".")
+			// Adds entries for all non leaf nodes as well to be asserted with "" NOTE: perhaps switch to a more optimal solution
+			out[path] = append(out[path], fmt.Sprintf("EXISTS_%d", time.Now().Unix()))
 			if len(t.Attr) > 0 {
-				path := strings.Join(stack, ".")
 				for _, a := range t.Attr {
 					key := path + "@" + a.Name.Local
 					out[key] = append(out[key], a.Value)
