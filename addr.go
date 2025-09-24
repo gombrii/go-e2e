@@ -5,7 +5,9 @@ import (
 	"os"
 )
 
-var env = ""
+const (
+	badArgument = 2
+)
 
 type AddressBook map[string]map[string]string
 
@@ -16,15 +18,20 @@ func SetAddressBook(book AddressBook) {
 }
 
 func Addr(svc string) string {
-	if env == "" {
-		env = os.Args[1]
+	if os.Args[1] == "" {
+		fmt.Printf("No env arg provided. Needed to run tests containing AddressBook lookups.\n")
+		os.Exit(badArgument)
 	}
 
-	if addr, ok := addrs[env][svc]; !ok {
-		panic(fmt.Sprintf("Attempt access address for combination of env %q and svc %q that does not exist", env, svc))
-	} else {
-		return addr
+	env := os.Args[1]
+
+	addr, ok := addrs[env][svc]
+	if !ok {
+		fmt.Printf("Attempt access address for combination of env %q and svc %q that does not exist\n", env, svc)
+		os.Exit(badArgument)
 	}
+
+	return addr
 }
 
 func EnvAddr(env, svc string) string {
