@@ -13,7 +13,7 @@ type AddressBook map[string]map[string]string
 
 var addrs AddressBook
 
-func SetAddressBook(book AddressBook) {
+func Set(book AddressBook) {
 	addrs = book
 }
 
