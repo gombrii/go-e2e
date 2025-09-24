@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -56,6 +57,7 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 	}
 
 	packages := make([]packageInfo, 0)
+	containsTests := false
 
 	for _, pkg := range pkgs {
 		var exportedVars []exportedVar
@@ -107,6 +109,7 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 							VarName:  name.Name,
 							TypeName: typeName,
 						})
+						containsTests = true
 					}
 				}
 			}
@@ -115,6 +118,10 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 		if len(exportedVars) > 0 {
 			packages = append(packages, packageInfo{pkg.PkgPath, pkg.Name, exportedVars})
 		}
+	}
+
+	if !containsTests {
+		return nil, errors.New("no tests provided")
 	}
 
 	return packages, nil
