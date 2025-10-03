@@ -12,9 +12,13 @@ var variable *regexp.Regexp = regexp.MustCompile(`\$\w+`)
 
 type (
 	Sequence struct {
-		Name  string
+		// The name of the sequence. Used for test logs.
+		Name string
+		// The tests/steps contained within this Sequence.
 		Steps Steps
 	}
+	// Steps is an ordered slice. In sequences tests/steps are unnamed and simply displayed as
+	// "step 1", "step 2", etc. in logs.
 	Steps []test
 )
 
