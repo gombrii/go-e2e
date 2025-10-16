@@ -36,7 +36,12 @@ func (r Runner) Run(sets ...set) {
 
 	ch := make(chan result)
 	wg := sync.WaitGroup{}
-	client := &http.Client{}
+	client := &http.Client{
+		// Don't follow redirects
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	numRun := 0
 	numPassed := 0
 	results := []result{}
