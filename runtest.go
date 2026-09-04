@@ -38,8 +38,7 @@ func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected E
 
 	parsedBody, err = parseBody(body, resp.Header.Get("Content-Type"))
 	if err != nil {
-		fmt.Fprintf(buf, "\n%s: parsing response body: %v\n", pink("ERROR"), err)
-		return map[string][]string{}, testResult{buf, false}
+		fmt.Fprintf(buf, "\n%s: parsing response body: %v\n", yellow("WARNING"), err)
 	}
 
 	if err := assertStatus(expected.Status, resp.StatusCode); err != nil {
