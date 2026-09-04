@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const usageInstructions = `Usage: e2r <pattern> [env]
+const usageInstructions = `Usage: e2e <pattern> [env]
 
 <pattern> follows the same rules as go test:
   .            current package
@@ -21,10 +21,10 @@ const usageInstructions = `Usage: e2r <pattern> [env]
   Specify an environment name (e.g. DEV, PROD) to pass to your tests.
 
 Examples:
-  e2r .                # Run tests in current package
-  e2r ./tests          # Run tests in ./tests
-  e2r ./tests.go       # Run tests only in tests.go
-  e2r ./... DEV        # Run tests recursively, passing env=DEV`
+  e2e .                # Run tests in current package
+  e2e ./tests          # Run tests in ./tests
+  e2e ./tests.go       # Run tests only in tests.go
+  e2e ./... DEV        # Run tests recursively, passing env=DEV`
 
 const (
 	errorExit   = 1

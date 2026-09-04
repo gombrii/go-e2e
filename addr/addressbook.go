@@ -10,7 +10,7 @@ const (
 )
 
 // The AddressBook is a singleton nested map used to store domains and paths. It's initiated once
-// and used within test declarations to look up addresses based on the env parameter passed to `e2r`.
+// and used within test declarations to look up addresses based on the env parameter passed to `e2e`.
 type AddressBook map[string]map[string]string
 
 var addrs AddressBook
@@ -40,7 +40,7 @@ func Set(book AddressBook) {
 }
 
 // Lookup makes it possible to look up addresses durung runtime based on the env parameter passed
-// to `e2r` if an AddressBook has been registered with [Set] at setup.
+// to `e2e` if an AddressBook has been registered with [Set] at setup.
 //
 // Eg.
 //
@@ -48,7 +48,7 @@ func Set(book AddressBook) {
 //	addr.Lookup("authentication")
 //
 //	# On the command line
-//	e2r mytests dev
+//	e2e mytests dev
 //
 // This will perform a lookup for the address of "identification" for the environment "dev".
 func Lookup(svc string) string {
@@ -70,7 +70,7 @@ func Lookup(svc string) string {
 
 // EnvLookup makes it possible to look up addresses durung runtime if an AddressBook has been
 // registered with [Set] at setup. EnvLookup works the same as Lookup but with the environment part
-// being hard coded and overriding any env parameter passed to `e2r`.
+// being hard coded and overriding any env parameter passed to `e2e`.
 //
 // Eg.
 //

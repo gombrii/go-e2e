@@ -7,7 +7,7 @@
 
 Go-e2e was written to be a quick and concurrent facilitator of HTTP API tests.
 
-There are two parts to this projects, a library `e2e` and a CLI tool `e2r`. `e2e` is used to define test cases while `e2r` runs them.
+There are two parts to this projects, `e2e` the library and `e2e` the CLI tool. The library is used to define test cases while the tool runs them.
 
 ## Getting started
 The most minimal setup needed to run tests is a catalogue containing a `go.mod` file and one `.go` file. That setup will be used for this setup guide.
@@ -36,13 +36,13 @@ To create tests you will also need to depend on `github.com/gombrii/go-e2e`
 go get github.com/gombrii/go-e2e@latest
 ```
 
-To run tests you either have to install `e2r` or run it with `go run` using its install URL `github.com/gombrii/go-e2e/cmd/e2r`.
+To run tests you either have to install `e2e` or run it with `go run` using its install URL `github.com/gombrii/go-e2e/cmd/e2e`.
 
 ```shell
-go install github.com/gombrii/go-e2e/cmd/e2r@latest
+go install github.com/gombrii/go-e2e/cmd/e2e@latest
 ```
 
-With this basic structure you can define tests that you run with `e2r`. The `setup.go` file can contain any setup as well as any number of tests. For reasons that will be described later in this guide, not least of all simply organisational, you might want to define multiple files in multiple packages.
+With this basic structure you can define tests that you run with `e2e`. The `setup.go` file can contain any setup as well as any number of tests. For reasons that will be described later in this guide, not least of all simply organisational, you might want to define multiple files in multiple packages.
 
 Eg.
 ```
@@ -59,8 +59,8 @@ mytests/
     └── suite3.go
 ```
 
-## e2r
-You can use the `e2r` CLI tool to run tests you have defined in your project.
+## e2e tool
+You can use the `e2e` CLI tool to run tests you have defined in your project.
 
 A test run can look something like this:
 
@@ -69,16 +69,16 @@ A test run can look something like this:
 ### Usage
 
 ```
-e2r <pattern> [env]
+e2e <pattern> [env]
 ```
 
 - `pattern` describes the location of the tests you want to run. It uses the same format as `go test`. To run all tests in the project pass `./...`. You can also run all tests in a package or all tests in a file by providing their respective paths, eg. `./smoketests` or `./smoketests/suite1.go` 
 - `env` is an optional string value that if passed can be used for runtime lookups in the [`Addressbook`](#addressbook-optional) provided by the `e2e` library. This enables quick switching between testing base URLs specific to different environments.
 
-Upon being run `e2r` will look for any exported variables of type [`Suite`](#suites) or [`Sequence`](#sequences) in the location targeted by the [`pattern`](#usage) provided and run them.
+Upon being run `e2e` will look for any exported variables of type [`Suite`](#suites) or [`Sequence`](#sequences) in the location targeted by the [`pattern`](#usage) provided and run them.
 
 ### Setup and teardown (optional)
-There are two hooks that, if defined in the module root, will be run before and after each `e2r` run. These hooks can be used to perform any setup and/or teardown needed.
+There are two hooks that, if defined in the module root, will be run before and after each `e2e` run. These hooks can be used to perform any setup and/or teardown needed.
 
 ```go
 func BeforeRun() any {
@@ -90,10 +90,10 @@ func AfterRun(any) {
 }
 ```
 
-For `e2r` to run them make sure to match their respective signatures exactly. Take note that they are exported. Whatever is returned by `BeforeRun` is what will be passed to `AfterRun` and can be accessed using a type assertion. If `BeforeRun` is not declared but `AfterRun` is, then `nil` will be passed.
+For `e2e` to run them make sure to match their respective signatures exactly. Take note that they are exported. Whatever is returned by `BeforeRun` is what will be passed to `AfterRun` and can be accessed using a type assertion. If `BeforeRun` is not declared but `AfterRun` is, then `nil` will be passed.
 
 ### AddressBook (optional)
-The `Addressbook` is a feature provided by `e2e` that enables runtime address lookup using a predefined addressbook in combination with the [`env`](#usage) parameter. This is to be able to make tests environment agnostic. Instead of an URL, a test will be targeted toward a service defined in the `Addressbook`. The `env` passed will then decide which instance of that service's URLs will be used.
+The `Addressbook` is a feature provided by the `e2e` library that enables runtime address lookup using a predefined addressbook in combination with the [`env`](#usage) parameter. This is to be able to make tests environment agnostic. Instead of an URL, a test will be targeted toward a service defined in the `Addressbook`. The `env` passed will then decide which instance of that service's URLs will be used.
 
 `AddressBook` is a nested `map` which you can register with a call to `SetAddressBook` in the `init` hook in the project root.
 
@@ -128,7 +128,7 @@ e2e.Addr("paymentservice") + "/creditcard"
 e2e.EnvAddr("dev", "paymentservice") + "/creditcard"
 ```
 
-## e2e
+## e2e library
 The library needed to define tests consists of a single package `e2e`.
 
 > Remember tests need to be declared in exported variables. The names of the variables do not matter.

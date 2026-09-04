@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-// The runner is the core component that run tests. It is mostly called by the [e2r] application
+// The runner is the core component that run tests. It is mostly called by the [e2e] application
 // but can also be instantiated and run programmatically by a third party if needed.
 type Runner struct {
 	BeforeRun func() any // Sets up environment before running any tests.
