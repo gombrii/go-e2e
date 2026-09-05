@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"text/template"
 	"time"
 )
@@ -21,7 +22,7 @@ const usageInstructions = `Usage: e2e [-v] <pattern> [env]
   ./...        current package and all subpackages
 
 [env] is optional:
-  Specify an environment name (e.g. DEV, PROD) to pass to your tests.
+  Specify a custom environment name (e.g. DEV, PROD) to pass to your tests.
 
 Examples:
   e2e .                # Run tests in current package
@@ -44,7 +45,11 @@ type data struct {
 
 func main() {
 	wd, _ := os.Getwd()
-	pattern, env, verbose := args(os.Args)
+	pattern, env, verbose, err := args(os.Args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(badArgument)
+	}
 
 	setup, packages, err := load(wd, pattern)
 	if err != nil {
@@ -84,8 +89,11 @@ func main() {
 	}
 }
 
-func args(args []string) (pattern, env string, verbose bool) {
-	verbose, rest := stripVerbose(args)
+func args(args []string) (pattern, env string, verbose bool, err error) {
+	verbose, rest, err := stripVerbose(args)
+	if err != nil {
+		return "", "", false, err
+	}
 	switch len(rest) {
 	case 3:
 		env = rest[2]
@@ -93,21 +101,26 @@ func args(args []string) (pattern, env string, verbose bool) {
 	case 2:
 		pattern = rest[1]
 	default:
-		fmt.Println(usageInstructions)
-		os.Exit(badArgument)
+		if len(rest) > 3 {
+			return "", "", false, fmt.Errorf("unexpected argument: %q", rest[3])
+		}
+		return "", "", false, fmt.Errorf("%s", usageInstructions)
 	}
-	return pattern, env, verbose
+	return pattern, env, verbose, nil
 }
 
-func stripVerbose(args []string) (bool, []string) {
+func stripVerbose(args []string) (bool, []string, error) {
 	verbose := false
 	rest := []string{}
 	for _, a := range args {
-		if a == "-v" {
+		switch {
+		case a == "-v":
 			verbose = true
-		} else {
+		case strings.HasPrefix(a, "-"):
+			return false, nil, fmt.Errorf("unknown flag: %q", a)
+		default:
 			rest = append(rest, a)
 		}
 	}
-	return verbose, rest
+	return verbose, rest, nil
 }
