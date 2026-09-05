@@ -9,105 +9,96 @@ import (
 )
 
 type test struct {
-	// Before contains a function that will be fun before this test. There are two helper functions
-	// that can be used to create Before functions, [Command] and [Input].
+	// Before lists the before-actions to run before this test, in order. Use the helper functions
+	// [Command], [Input], and [Delay] to create them.
 	Before Before
-	// Request contains all details necessary to perform the test's HTTP call.
+	// Request defines the HTTP call this test makes.
 	Request Request
-	// Expect contains information on the expected shape of the HTTP response.
+	// Expect defines expectations on the HTTP response. Only the fields you set are validated —
+	// unset fields accept any value.
 	Expect Expect
-	// Capture contains strings matching fields in the HTTP response of which you'd like to capture
-	// the value.
+	// Capture lists keys of response body fields whose values should be stored and made available
+	// to later steps via the $-prefix.
 	Capture Captors
 }
 
 type (
-	// Before is a function type that can used to perform a pre test action.
+	// Before is a slice of before-action functions. Use [Command], [Input], or [Delay] to create them.
 	Before []func(data map[string]string) (string, error)
-	// Request contains all details necessary to perform a test's HTTP call.
+	// Request defines the HTTP call to make for this test.
 	Request struct {
-		// CTX is the context provided to the http.Client upon making the test's HTTP call.
-		// It defaults to context.Background().
+		// CTX is the context passed to the HTTP client. Defaults to context.Background() if not set.
 		CTX context.Context
-		// The HTTP method of the request.
+		// The HTTP method to use, e.g. "GET" or "POST".
 		Method string
-		// The URL to which to make the HTTP call. It can either be hard coded as a string or looked
-		// up dynamically using the [addr.AddressBook].
+		// The URL to send the request to. Can be a hard-coded string or a value looked up
+		// dynamically using [addr.Lookup] or [addr.EnvLookup].
 		URL string
-		// Headers contains a slice of key value pairs. Duplicate keys will be added together to
-		// multi value headers in runtime.
+		// Additional headers to send with the request. Duplicate keys are combined into
+		// multi-value headers.
 		Headers Headers
-		// Content is a special field for the "Content-Type" header for easy access.
+		// Shorthand for the Content-Type header. Setting this is equivalent to adding a
+		// Content-Type entry to [Request.Headers].
 		Content string
-		// The body in string format. It is recommended to use raw strings.
+		// The request body as a string. Raw string literals are recommended for readability.
 		Body string
 	}
-	// Expect contains information on the expected shape of the HTTP response. If a field is left
-	// unset it means the test will accept any value as a successful response.
+	// Expect defines expectations on the HTTP response. Leave a field unset to accept any value
+	// for it.
 	Expect struct {
-		// Status is set if a specific response status is expected as a result of the test. If set
-		// then the resulting status of the test must exactly match what is expected or the test
-		// will count as a failure.
+		// The HTTP status code the response must return. If set, any other status code will
+		// fail the test. Leave unset to accept any status.
 		Status int
-		// Headers contains a slice of key value pairs. The key and the value is treated differently
-		// in terms of strictness. A test with an expected header set will only succeed if the
-		// following two conditions are met.
-		// - the key exactly matches a key present in the HTTP response of the test.
-		// - the value is contained within the string value of the header being matched with its
-		// key in the previous condition.
+		// Headers to assert in the response. Each entry is matched as follows:
+		// - the key must exactly match a header name in the response.
+		// - the value must be contained within the matched header's value (not an exact match).
 		//
-		// "Contained within" in the second condition  means that the expected value does not
-		// need to state the entirity of the actual value in the HTTP response. This is useful when
-		// values in response headers contains generated codes, etc. This also means that setting
-		// the expected value to "" means that any value is accepted, only asserting the presense
-		// of the key.
+		// The partial-value rule means you don't need to spell out the full header value, which
+		// is handy when values contain generated codes or other dynamic parts. Setting the value
+		// to "" asserts only that the header is present, regardless of its value.
 		Headers Headers
-		// Body is a map representing expectations on response bodies.
-		// The keys match fields or paths to leafs in nested response bodies.
-		// Body supports both JSON and XML.
+		// Body specifies expectations on the response body using dot-separated paths to fields.
+		// Both JSON and XML responses are supported.
 		//
-		//	{
-		// 		"field": {
-		//			"leaf": "value"
-		//		}
-		// 	}
+		// For JSON, use dot notation to reach nested fields:
 		//
-		// This JSON example matches the following body object.
+		//	// Matches
+		//	// {
+		//	//   "field": {
+		//	//     "leaf": "value"
+		//	//   }
+		//	// }
+		//	Body{"field.leaf": "value"}
 		//
-		//	Body{
-		//		"field.leaf": "value",
-		//	}
+		// For XML, use dot notation to reach nested tags. Append @attr to assert an attribute:
 		//
-		// This asserts that "leaf" contains the string "value". If the value of "leaf" was a longer
-		// string, eg. "everybody has values", it would still match.
-		//
-		//	<root>
-		// 		<item attr="attrval">value</item>
-		// 		<item>othervalue</item>
-		// 	</root>
-		//
-		// For this XML example the following Body object asserts that at least one <item> tag under
-		// the tag <root> contains the text "othervalue". It also asserts that at least one <item>
-		// tag under the tag <root> has en attribute "attr" with the value of "attrval".
-		//
+		//	// Matches
+		//	// <root>
+		//	//   <item attr="attrval">value</item>
+		//	//   <item>othervalue</item>
+		//	// </root>
 		//	Body{
 		//		"root.item":      "othervalue",
 		//		"root.item@attr": "attrval",
 		//	}
+		//
+		// In both formats the expected value only needs to be contained within the actual value,
+		// not match it exactly. Setting the expected value to "" asserts only that the field
+		// exists.
 		Body Body
 	}
 	Captors []string
 )
 
 type (
-	// Headers contains a slice of key value pairs representing headers of an HTTP request or
-	// response. Duplicate keys are allowed.
+	// Headers is a slice of key-value pairs representing HTTP request or response headers.
+	// Duplicate keys are allowed.
 	Headers []header
 	header  struct {
 		Key string
 		Val string
 	}
-	// Body is a map representing expectations on response bodies.
+	// Body is a map of dot-separated field paths to expected values. See [Expect.Body].
 	Body map[string]any
 )
 

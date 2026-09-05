@@ -1,3 +1,6 @@
+// Package addr provides the AddressBook, a registry that maps environments to named
+// addresses. It allows tests to resolve URLs at runtime based on the env argument
+// passed to the e2e tool, making test suites environment-agnostic.
 package addr
 
 import (
@@ -9,48 +12,50 @@ const (
 	badArgument = 2
 )
 
-// The AddressBook is a singleton nested map used to store domains and paths. It's initiated once
-// and used within test declarations to look up addresses based on the env parameter passed to `e2e`.
+// The AddressBook is a nested map used to look up addresses at runtime based on the env
+// argument passed to the e2e tool. The outer key is the environment, the inner key is the
+// name of an address.
 type AddressBook map[string]map[string]string
 
 var addrs AddressBook
 
-// Set registers an instance of AddressBook from which to make lookups during runtime. Set must be
-// called from the init hook in the root of a test project.
+// Set registers the AddressBook to use for runtime lookups. It must be called from the
+// init hook in the root of a test project.
 //
-// An AddressBook is a nested map with the outer layer representing environments and the nested
-// later representing services.
+// The outer key is the environment and the inner key is the name of an address.
 //
 // Eg.
 //
-//	AddressBook{
+//	addr.Set(addr.AddressBook{
 //		"local": {
-//			"identification": "localhost:9999",
-//			"authentication": "localhost:5555",
+//			"auth":  "http://localhost:8080/api/v1/auth",
+//			"users": "http://localhost:8081/api/v1/users",
 //		},
 //		"dev": {
-//			"identification": "dev.klick.klock",
-//			"authentication": "dev.clack.cluck",
+//			"auth":  "https://auth.dev.example.com/api/v1/auth",
+//			"users": "https://users.dev.example.com/api/v1/users",
 //		},
-//	}
-//
-// .
+//		"prod": {
+//			"auth":  "https://auth.example.com/api/v1/auth",
+//			"users": "https://users.example.com/api/v1/users",
+//		},
+//	})
 func Set(book AddressBook) {
 	addrs = book
 }
 
-// Lookup makes it possible to look up addresses durung runtime based on the env parameter passed
-// to `e2e` if an AddressBook has been registered with [Set] at setup.
+// Lookup returns the address registered under the given name for the environment passed to
+// the e2e tool. An AddressBook must have been registered with [Set] beforehand.
 //
 // Eg.
 //
 //	// Within a test
-//	addr.Lookup("authentication")
+//	addr.Lookup("auth")
 //
 //	# On the command line
-//	e2e mytests dev
+//	e2e ./mytests dev
 //
-// This will perform a lookup for the address of "identification" for the environment "dev".
+// Returns the address registered under "auth" for the environment "dev".
 func Lookup(svc string) string {
 	if os.Args[1] == "" {
 		fmt.Printf("No env arg provided. Needed to run tests containing AddressBook lookups.\n")
@@ -68,16 +73,16 @@ func Lookup(svc string) string {
 	return addr
 }
 
-// EnvLookup makes it possible to look up addresses durung runtime if an AddressBook has been
-// registered with [Set] at setup. EnvLookup works the same as Lookup but with the environment part
-// being hard coded and overriding any env parameter passed to `e2e`.
+// EnvLookup works the same as [Lookup] but with the environment hard coded, ignoring whatever
+// env argument was passed to the e2e tool.
 //
 // Eg.
 //
 //	// Within a test
-//	addr.Lookup("dev", "authentication")
+//	addr.EnvLookup("dev", "auth")
 //
-// This will perform a lookup for the address of "identification" for the environment "dev".
+// Returns the address registered under "auth" for the environment "dev", regardless of which
+// environment the e2e tool was invoked with.
 func EnvLookup(env, svc string) string {
 	if addr, ok := addrs[env][svc]; !ok {
 		panic(fmt.Sprintf("Attempt access address for combination of env %q and svc %q that does not exist", env, svc))

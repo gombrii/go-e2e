@@ -12,13 +12,14 @@ var variable *regexp.Regexp = regexp.MustCompile(`\$\w+`)
 
 type (
 	Sequence struct {
-		// The name of the sequence. Used for test logs.
+		// A name identifying this sequence in test output.
 		Name string
-		// The tests/steps contained within this Sequence.
+		// The steps to run, in order.
 		Steps Steps
 	}
-	// Steps is an ordered slice. In sequences tests/steps are unnamed and simply displayed as
-	// "step 1", "step 2", etc. in logs.
+	// Steps is an ordered slice of tests. Steps run sequentially and share a common data
+	// context, making it possible to pass captured values from one step to the next.
+	// Each step is displayed as "step 1", "step 2", etc. in output.
 	Steps []test
 )
 

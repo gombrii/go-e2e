@@ -7,7 +7,7 @@
 
 Go-e2e was written to be a quick and concurrent facilitator of HTTP API tests.
 
-There are two parts to this projects, `e2e` the library and `e2e` the CLI tool. The library is used to define test cases while the tool runs them.
+There are two parts to this project: the `e2e` library and the `e2e` tool. The library is used to define test cases while the tool runs them.
 
 ## Getting started
 The most minimal setup needed to run tests is a catalogue containing a `go.mod` file and one `.go` file. That setup will be used for this setup guide.
@@ -36,13 +36,13 @@ To create tests you will also need to depend on `github.com/gombrii/go-e2e`
 go get github.com/gombrii/go-e2e@latest
 ```
 
-To run tests you either have to install `e2e` or run it with `go run` using its install URL `github.com/gombrii/go-e2e/cmd/e2e`.
+To run tests you either have to install the `e2e` tool or run it with `go run` using its install URL `github.com/gombrii/go-e2e/cmd/e2e`.
 
 ```shell
 go install github.com/gombrii/go-e2e/cmd/e2e@latest
 ```
 
-With this basic structure you can define tests that you run with `e2e`. The `setup.go` file can contain any setup as well as any number of tests. For reasons that will be described later in this guide, not least of all simply organisational, you might want to define multiple files in multiple packages.
+With this basic structure you can define tests that you run with the `e2e` tool. The `setup.go` file can contain any setup as well as any number of tests. For reasons that will be described later in this guide, not least of all simply organisational, you might want to define multiple files in multiple packages.
 
 Eg.
 ```
@@ -75,10 +75,10 @@ e2e <pattern> [env]
 - `pattern` describes the location of the tests you want to run. It uses the same format as `go test`. To run all tests in the project pass `./...`. You can also run all tests in a package or all tests in a file by providing their respective paths, eg. `./smoketests` or `./smoketests/suite1.go` 
 - `env` is an optional string value that if passed can be used for runtime lookups in the [`Addressbook`](#addressbook-optional) provided by the `e2e` library. This enables quick switching between testing base URLs specific to different environments.
 
-Upon being run `e2e` will look for any exported variables of type [`Suite`](#suites) or [`Sequence`](#sequences) in the location targeted by the [`pattern`](#usage) provided and run them.
+Upon being run the `e2e` tool will look for any exported variables of type [`Suite`](#suites) or [`Sequence`](#sequences) in the location targeted by the [`pattern`](#usage) provided and run them.
 
 ### Setup and teardown (optional)
-There are two hooks that, if defined in the module root, will be run before and after each `e2e` run. These hooks can be used to perform any setup and/or teardown needed.
+There are two hooks that, if defined in the module root, will be run before and after each `e2e` tool run. These hooks can be used to perform any setup and/or teardown needed.
 
 ```go
 func BeforeRun() any {
@@ -193,17 +193,18 @@ Expect: e2e.Expect{
 In the above example the test would pass if the response body as a field "title" with a value of which "delectus" is a part. If title contained "delectus kolumplectus" the test would still pass. This is useful to be able to assert IDs that might contain some constant part and some dynamic part. However the key must match exactly for the test to pass. This makes it possible to simply test for the existance of a field without caring about the value by including `"title": ""`. The same goes for expected headers.
 
 #### Advanced
-`Before` and `Capture` are two special properties which enables actions to be performed before the execution of a test as well as response data to be captured.
+`Before` and `Capture` are two special properties which enable actions to be performed before the execution of a test as well as response data to be captured.
 
-`Before` takes a list of before-actions. There are two types created using the two helper functions `Input` and `Command`.
+`Before` takes a list of before-actions. There are three types created using the three helper functions `Input`, `Command`, and `Delay`.
 
 - `Input(text string, mapTo string)` will prompt the user to input a string value before the test is run. `text` is the prompt. `mapTo` is a key that can be referenced in the test using the `$`-prefix. In the example above `$pwd` is used to insert a password into the request body.
 - `Command(command string, args ...string)` will run a terminal command before the test is run. Its output will be displayed to the user after which the user will be prompted to press enter to continue. Usecases include fetching some local dynamic data, displaying a QR code, or anything else might be performed.
+- `Delay(delay string)` will pause execution for a given duration before the test is run. The duration is parsed using Go's standard duration format, e.g. `"500ms"` or `"2s"`. Progress is shown with a spinner while waiting. Useful when a previous step triggers something asynchronous that needs time to settle before the next assertion — for example waiting for a short-lived cache to populate, for an eventual consistency window to close, or for a background job to complete.
 
 The `Capture` property allows some data to be captured from the HTTP response in a test. This is discussed further in the [`Sequences`](#sequences) section.
 
 ### Suites
-Tests can not exist on their own but must be put in a type of suite. There are two types `Suite` and `Sequence`. `Suite` is the simplest one. A `Suite` has a name and a set of independent named tests with no order.
+Tests can not exist on their own but must be put in a type of suite. There are two types `Suite` and `Sequence`. `Suite` is the simplest one. A `Suite` has a name and an unordered set of independent named tests that run concurrently.
 
 ```go
 e2e.Suite{
@@ -245,7 +246,7 @@ e2e.Suite{
 ```
 
 ### Sequences
-A `Sequence` works similarly to a `Suite` but not exactly. Superficially the tests it contains are unnamed and are called steps. But importantly steps in a `Sequence` are run sequentially and in a common context. This means that data can be transferred from one step to the next and makes it possible to perform and test a chain of HTTP calls which build on eachother. The main mechanism to achieve this is the [captor](#advanced). A captor is a key listed in the `Capture` block of a test. If done the captor will capture the value of a field matching the catpr key in the body returned in the HTTP response in the test. The captured value can be referenced later in the `Sequence` using the `$`-prefix. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) before-action. Captured values can be referenced in all parts of a test, even in before-actions. This means that a token returned in an HTTP response in a test can be referenced in a `Command` before-action in a later test to display a QR code, for example.
+A `Sequence` works similarly to a `Suite` but not exactly. Superficially the tests it contains are unnamed and are called steps. But importantly steps in a `Sequence` are run sequentially and in a common context. This means that data can be transferred from one step to the next and makes it possible to perform and test a chain of HTTP calls which build on eachother. The main mechanism to achieve this is the [captor](#advanced). A captor is a key listed in the `Capture` block of a test. If done the captor will capture the value of a field matching the captor key in the body returned in the HTTP response in the test. The captured value can be referenced later in the `Sequence` using the `$`-prefix. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) before-action. Captured values can be referenced in all parts of a test, even in before-actions. This means that a token returned in an HTTP response in a test can be referenced in a `Command` before-action in a later test to display a QR code, for example.
 
 ```go
 e2e.Sequence{
@@ -313,7 +314,7 @@ e2e.Sequence{
 ### Use Suite or Sequence?
 Although they are similar they have some obvious and less obvious pros and cons respectively. The pros of Sequences are quite obvious in that they let tests share data between eachother. The drawback is that they run in sequence which is slower. Since tests in Suites are independent of eachother they can be run in parallell. If multiple Suites and Sequences are run in one go each Suite and Sequence will always run in parallell with eachother.
 
-> Last tip: Since any [beofore-action](#advanced) will require user input when running the test it is a good idea to think about how tests are organized in packages and files. It can be useful to have a separate catalogue of tests that can be run as a smoke suite without needing user input. Tests that require user input can instead be used to test more intricate features of an API.
+> Last tip: Since any [before-action](#advanced) will require user input when running the test it is a good idea to think about how tests are organized in packages and files. It can be useful to have a separate catalogue of tests that can be run as a smoke suite without needing user input. Tests that require user input can instead be used to test more intricate features of an API.
 
 ## Concurrency and performance
 Since `go-e2e` is a concurrent tool tests don't scale linearly. From my own manual testing it seems to scale pretty constantly `O(1)` and run whatever amount of tests in about a second or two. `go-e2e` has been tested with at most about 370 tests.

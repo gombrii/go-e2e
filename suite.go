@@ -10,13 +10,13 @@ import (
 
 type (
 	Suite struct {
-		// The name of the suite. Used for test logs.
+		// A name identifying this suite in test output.
 		Name  string
-		// The tests contained within this Suite.
+		// The tests to run. Each key is the test name shown in output.
 		Tests Tests
 	}
-	// Tests is an unordered map. Each key is a test name and each value is a Test. The test names
-	// are used for test logs.
+	// Tests is an unordered map of named tests. Tests in a Suite run concurrently, so they
+	// must be independent of each other.
 	Tests map[string]test
 )
 

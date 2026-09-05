@@ -1,5 +1,6 @@
-// Package e2e is the main package of the go-e2e library. It contains all types necessary to
-// construct tests as well as the engine running the tests.
+// Package e2e is the main package of the go-e2e library. It contains all types needed to
+// declare tests. The engine that runs them is used by the e2e tool and does not need to
+// be interacted with directly.
 package e2e
 
 import (
@@ -10,12 +11,12 @@ import (
 	"sync"
 )
 
-// The runner is the core component that run tests. It is mostly called by the [e2e] application
-// but can also be instantiated and run programmatically by a third party if needed.
+// Runner is the engine that executes test suites and sequences. It is used internally
+// by the e2e tool and does not need to be instantiated directly.
 type Runner struct {
-	BeforeRun func() any // Sets up environment before running any tests.
-	AfterRun  func(any)  // Tears down environment after running all tests.
-	Verbose   bool       // Print all response headers, not only expected ones.
+	BeforeRun func() any // Called before any tests run. Corresponds to BeforeRun in the project root.
+	AfterRun  func(any)  // Called after all tests have run. Corresponds to AfterRun in the project root.
+	Verbose   bool       // When true, all response headers are printed, not only expected ones.
 }
 
 type set interface {
@@ -28,8 +29,8 @@ type result struct {
 	numRun int
 }
 
-// Run starts the engine, runs suites and sequences concurrently or sequentially depending on their
-// type. It handles the whole run from start to finish including printing output.
+// Run executes the given suites and sequences, prints the output, and prompts for
+// confirmation before showing full results. Called by the e2e tool.
 func (r Runner) Run(sets ...set) {
 	r.ensureHooks()
 	before := r.BeforeRun()

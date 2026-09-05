@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+// Delay pauses execution for the given duration before the test runs. The duration is
+// parsed using Go's standard format, e.g. "500ms" or "2s". Progress is shown with a
+// spinner while waiting.
+//
+// Useful when a previous step triggers something asynchronous that needs time to settle
+// before the next assertion — for example waiting for a cache to populate, for an
+// eventual consistency window to close, or for a background job to complete.
 func Delay(delay string) func(data map[string]string) (string, error) {
 	return func(data map[string]string) (string, error) {
 		progressBarMutex.Lock()
@@ -40,6 +47,9 @@ func Delay(delay string) func(data map[string]string) (string, error) {
 	}
 }
 
+// Input prompts the user for a string value before the test runs. text is the prompt
+// shown to the user. The entered value is stored under mapTo and can be referenced
+// elsewhere in the test using the $-prefix, e.g. "$mapTo".
 func Input(text string, mapTo string) func(data map[string]string) (string, error) {
 	return func(data map[string]string) (string, error) {
 		progressBarMutex.Lock()
@@ -67,7 +77,13 @@ func Input(text string, mapTo string) func(data map[string]string) (string, erro
 	}
 }
 
-func Command(command string, args ...string) func(data map[string]string) (string, error) { // Can add mapTo as first argument to be able to capture output
+// Command runs a terminal command before the test runs. Its output is printed and the
+// user is prompted to press Enter to continue. Args support the $-prefix to reference
+// values captured from earlier steps.
+//
+// Useful for fetching local dynamic data, displaying a QR code, or any other side
+// effect that should happen and be confirmed before the test proceeds.
+func Command(command string, args ...string) func(data map[string]string) (string, error) {
 	return func(data map[string]string) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
