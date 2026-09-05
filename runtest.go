@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
 
 type testResult struct {
@@ -98,7 +97,7 @@ func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Exp
 
 func assertStatus(expected int, actual int) error {
 	if expected != 0 && expected != actual {
-		return fmt.Errorf("unexpected code, got: %d want: %d", actual, expected)
+		return fmt.Errorf("got %d, expected %d", actual, expected)
 	}
 	return nil
 }
@@ -107,7 +106,7 @@ func assertHeaders(expected Headers, actual http.Header) error {
 	for key, val := range expected {
 		res, ok := actual[key]
 		if !ok {
-			return fmt.Errorf("missing %q", key)
+			return fmt.Errorf("%q not present", key)
 		}
 
 		hasValue := false
@@ -117,7 +116,10 @@ func assertHeaders(expected Headers, actual http.Header) error {
 			}
 		}
 		if !hasValue {
-			return fmt.Errorf("missing value for %q. Want at least: %q", key, val)
+			if len(res) == 1 {
+				return fmt.Errorf("%q: %q does not contain %q", key, res[0], val)
+			}
+			return fmt.Errorf("%q: none of %v contains %q", key, res, val)
 		}
 	}
 	return nil
@@ -127,7 +129,7 @@ func assertBody(expected Body, actual map[string][]string) error {
 	for field, exp := range expected {
 		vals, ok := actual[field]
 		if !ok || len(vals) == 0 {
-			return fmt.Errorf("missing field %q", field)
+			return fmt.Errorf("%q not present", field)
 		}
 		want := fmt.Sprint(exp)
 		found := false
@@ -138,7 +140,17 @@ func assertBody(expected Body, actual map[string][]string) error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("unexpected value of field %q,\nno match among: %v\nwant at least: %v", field, strings.Join(vals, ", "), want)
+			// Filter out branch sentinels ("") before displaying actual values
+			display := make([]string, 0, len(vals))
+			for _, v := range vals {
+				if v != "" {
+					display = append(display, v)
+				}
+			}
+			if len(display) == 1 {
+				return fmt.Errorf("%q: %q does not contain %q", field, display[0], want)
+			}
+			return fmt.Errorf("%q: none of %v contains %q", field, display, want)
 		}
 	}
 	return nil
@@ -149,7 +161,7 @@ func flattenJSON(body any, prefix string, out map[string][]string) {
 	case map[string]any:
 		// Adds entries for all non leaf nodes as well to be asserted with "" NOTE: perhaps switch to a more optimal solution
 		if prefix != "" {
-			out[prefix] = []string{fmt.Sprintf("EXISTS_%d", time.Now().Unix())}
+			out[prefix] = []string{""}
 		}
 		for key, value := range x {
 			p := key
@@ -164,7 +176,7 @@ func flattenJSON(body any, prefix string, out map[string][]string) {
 		}
 		// We want an empty array to count as a leaf NOTE: perhaps switch to a more optimal solution
 		if prefix != "" && len(x) == 0 {
-			out[prefix] = append(out[prefix], fmt.Sprintf("EXISTS_%d", time.Now().Unix()))
+			out[prefix] = append(out[prefix], "")
 		}
 	default:
 		if prefix != "" {
@@ -190,7 +202,7 @@ func xmlToFlat(b []byte) (map[string][]string, error) {
 			stack = append(stack, t.Name.Local)
 			path := strings.Join(stack, ".")
 			// Adds entries for all non leaf nodes as well to be asserted with "" NOTE: perhaps switch to a more optimal solution
-			out[path] = append(out[path], fmt.Sprintf("EXISTS_%d", time.Now().Unix()))
+			out[path] = append(out[path], "")
 			if len(t.Attr) > 0 {
 				for _, a := range t.Attr {
 					key := path + "@" + a.Name.Local
