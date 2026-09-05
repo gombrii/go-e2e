@@ -7,7 +7,9 @@ import (
 	{{ .Setup.PkgName }} "{{ .Setup.PkgPath }}"
 {{- end }}
 {{- range .Packages }}
+{{- if ne .PkgPath $.Setup.PkgPath }}
 	{{ .PkgName }} "{{ .PkgPath }}"
+{{- end }}
 {{- end }}
 	e2e{{ .Noise }} "github.com/gombrii/go-e2e"
 )
