@@ -47,10 +47,10 @@ func Delay(delay string) func(data map[string]string) (string, error) {
 	}
 }
 
-// Input prompts the user for a string value before the test runs. text is the prompt
+// Input prompts the user for a string value before the test runs. prompt is the message
 // shown to the user. The entered value is stored under mapTo and can be referenced
 // elsewhere in the test using the $-prefix, e.g. "$mapTo".
-func Input(text string, mapTo string) func(data map[string]string) (string, error) {
+func Input(prompt string, mapTo string) func(data map[string]string) (string, error) {
 	return func(data map[string]string) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
@@ -59,10 +59,10 @@ func Input(text string, mapTo string) func(data map[string]string) (string, erro
 		moveDown(1) // To one line below progress bar
 		clearLine() // Clear line where prompt will be drawn
 
-		fmt.Print("\rInput required - ", text, ": ")
+		fmt.Print("\r? ", prompt, ": ")
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			return fmt.Sprintf("manual input %q", text), fmt.Errorf("reading input: %v", err)
+			return fmt.Sprintf("manual input %q", prompt), fmt.Errorf("reading input: %v", err)
 		}
 
 		moveUp(1)   // Back to the line where the prompt was drawn
@@ -73,7 +73,7 @@ func Input(text string, mapTo string) func(data map[string]string) (string, erro
 			data[mapTo] = strings.TrimSpace(input)
 		}
 
-		return fmt.Sprintf("manual input: %q", text), nil
+		return fmt.Sprintf("manual input: %q", prompt), nil
 	}
 }
 

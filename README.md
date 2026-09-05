@@ -197,7 +197,7 @@ In the above example the test would pass if the response body as a field "title"
 
 `Before` takes a list of before-actions. There are three types created using the three helper functions `Input`, `Command`, and `Delay`.
 
-- `Input(text string, mapTo string)` will prompt the user to input a string value before the test is run. `text` is the prompt. `mapTo` is a key that can be referenced in the test using the `$`-prefix. In the example above `$pwd` is used to insert a password into the request body.
+- `Input(prompt string, mapTo string)` will prompt the user to input a string value before the test is run. `prompt` is the message shown to the user. `mapTo` is a key that can be referenced in the test using the `$`-prefix. In the example above `$pwd` is used to insert a password into the request body.
 - `Command(command string, args ...string)` will run a terminal command before the test is run. Its output will be displayed to the user after which the user will be prompted to press enter to continue. Usecases include fetching some local dynamic data, displaying a QR code, or anything else might be performed.
 - `Delay(delay string)` will pause execution for a given duration before the test is run. The duration is parsed using Go's standard duration format, e.g. `"500ms"` or `"2s"`. Progress is shown with a spinner while waiting. Useful when a previous step triggers something asynchronous that needs time to settle before the next assertion — for example waiting for a short-lived cache to populate, for an eventual consistency window to close, or for a background job to complete.
 
