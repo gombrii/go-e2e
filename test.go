@@ -111,7 +111,7 @@ type (
 	Body map[string]any
 )
 
-func (t test) run(client *http.Client, buf *bytes.Buffer, data map[string]string) (result testResult) {
+func (t test) run(client *http.Client, buf *bytes.Buffer, data map[string]string, verbose bool) (result testResult) {
 	if t.Request.Content != "" {
 		t.Request.Headers = append(t.Request.Headers, header{"Content-Type", t.Request.Content})
 	}
@@ -130,7 +130,7 @@ func (t test) run(client *http.Client, buf *bytes.Buffer, data map[string]string
 
 	t.Request = inject(t.Request, data)
 
-	body, result := performTest(client, buf, t.Request, t.Expect)
+	body, result := performTest(client, buf, t.Request, t.Expect, verbose)
 	if !result.passed {
 		return result
 	}

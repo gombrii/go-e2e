@@ -22,7 +22,7 @@ type (
 	Steps []test
 )
 
-func (s Sequence) run(client *http.Client) result {
+func (s Sequence) run(client *http.Client, verbose bool) result {
 	buf := &bytes.Buffer{}
 	allPassed := true
 	data := make(map[string]string)
@@ -35,7 +35,7 @@ func (s Sequence) run(client *http.Client) result {
 	for i, step := range s.Steps {
 		fmt.Fprintln(buf, "Step", i+1)
 		numRun = i + 1
-		if result := step.run(client, buf, data); !result.passed {
+		if result := step.run(client, buf, data, verbose); !result.passed {
 			allPassed = false
 			break
 		}

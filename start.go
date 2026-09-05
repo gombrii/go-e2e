@@ -15,10 +15,11 @@ import (
 type Runner struct {
 	BeforeRun func() any // Sets up environment before running any tests.
 	AfterRun  func(any)  // Tears down environment after running all tests.
+	Verbose   bool       // Print all response headers, not only expected ones.
 }
 
 type set interface {
-	run(*http.Client) result
+	run(*http.Client, bool) result
 }
 
 type result struct {
@@ -51,7 +52,7 @@ func (r Runner) Run(sets ...set) {
 		wg.Add(1)
 		go func(set set) {
 			defer wg.Done()
-			ch <- set.run(client)
+			ch <- set.run(client, r.Verbose)
 		}(s)
 	}
 

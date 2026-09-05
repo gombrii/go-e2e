@@ -20,7 +20,7 @@ type (
 	Tests map[string]test
 )
 
-func (s Suite) run(client *http.Client) result {
+func (s Suite) run(client *http.Client, verbose bool) result {
 	buf := &bytes.Buffer{}
 	ch := make(chan testResult)
 	wg := sync.WaitGroup{}
@@ -36,7 +36,7 @@ func (s Suite) run(client *http.Client) result {
 			defer wg.Done()
 			buf := &bytes.Buffer{}
 			fmt.Fprintln(buf, "--------", name, "--------")
-			result := test.run(client, buf, map[string]string{})
+			result := test.run(client, buf, map[string]string{}, verbose)
 			if result.passed {
 				fmt.Fprintln(buf, "\nSuccess!")
 			}

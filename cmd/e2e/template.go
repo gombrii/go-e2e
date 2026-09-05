@@ -20,6 +20,7 @@ func main() {
 	{{- if .Setup.AfterRun }}
 		AfterRun: {{ .Setup.PkgName }}.{{ .Setup.AfterRun }},
 	{{- end }}
+		Verbose: {{ .Verbose }},
 	}.Run(
 {{- range .Packages }}
 	{{- $pkg := . }}

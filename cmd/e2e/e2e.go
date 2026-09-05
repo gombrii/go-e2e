@@ -9,7 +9,10 @@ import (
 	"time"
 )
 
-const usageInstructions = `Usage: e2e <pattern> [env]
+const usageInstructions = `Usage: e2e [-v] <pattern> [env]
+
+[-v] is optional:
+  Print all response headers, not only the expected ones.
 
 <pattern> follows the same rules as go test:
   .            current package
@@ -24,45 +27,31 @@ Examples:
   e2e .                # Run tests in current package
   e2e ./tests          # Run tests in ./tests
   e2e ./tests.go       # Run tests only in tests.go
-  e2e ./... DEV        # Run tests recursively, passing env=DEV`
+  e2e ./... DEV        # Run tests recursively, passing env=DEV
+  e2e -v ./... DEV     # Run tests with verbose header output`
 
 const (
 	errorExit   = 1
 	badArgument = 2
 )
 
-const (
-	patternArg = 1
-	envArg     = 2
-)
-
 type data struct {
 	Noise    int64
 	Setup    setup
 	Packages []packageInfo
+	Verbose  bool
 }
 
 func main() {
 	wd, _ := os.Getwd()
-	var pattern string
-	var env string
-	switch len(os.Args) {
-	case 3:
-		env = os.Args[envArg]
-		fallthrough
-	case 2:
-		pattern = os.Args[patternArg]
-	default:
-		fmt.Println(usageInstructions)
-		os.Exit(badArgument)
-	}
+	pattern, env, verbose := args(os.Args)
 
 	setup, packages, err := load(wd, pattern)
 	if err != nil {
 		fmt.Printf("Error setting up runner: %v\n", err)
 		os.Exit(errorExit)
 	}
-	data := data{time.Now().Unix(), setup, packages}
+	data := data{time.Now().Unix(), setup, packages, verbose}
 	dir, err := os.MkdirTemp("", "e2e-runner-*")
 	if err != nil {
 		fmt.Printf("Error setting up runner: %v\n", err)
@@ -93,4 +82,32 @@ func main() {
 		fmt.Printf("Error executing runner: %v\n", err)
 		os.Exit(errorExit)
 	}
+}
+
+func args(args []string) (pattern, env string, verbose bool) {
+	verbose, rest := stripVerbose(args)
+	switch len(rest) {
+	case 3:
+		env = rest[2]
+		fallthrough
+	case 2:
+		pattern = rest[1]
+	default:
+		fmt.Println(usageInstructions)
+		os.Exit(badArgument)
+	}
+	return pattern, env, verbose
+}
+
+func stripVerbose(args []string) (bool, []string) {
+	verbose := false
+	rest := []string{}
+	for _, a := range args {
+		if a == "-v" {
+			verbose = true
+		} else {
+			rest = append(rest, a)
+		}
+	}
+	return verbose, rest
 }

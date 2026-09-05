@@ -18,7 +18,7 @@ type testResult struct {
 	passed bool
 }
 
-func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected Expect) (parsedBody map[string][]string, res testResult) {
+func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected Expect, verbose bool) (parsedBody map[string][]string, res testResult) {
 	printReq(buf, req)
 
 	resp, err := makeRequest(client, req)
@@ -34,7 +34,7 @@ func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected E
 		return map[string][]string{}, testResult{buf, false}
 	}
 
-	printResp(buf, resp, body, expected)
+	printResp(buf, resp, body, expected, verbose)
 
 	parsedBody, err = parseBody(body, resp.Header.Get("Content-Type"))
 	if err != nil {
@@ -88,10 +88,10 @@ func printReq(buf *bytes.Buffer, req Request) {
 		fmt.Fprint(buf, grey("-> ")+format([]byte(req.Body), req.Content))
 	}
 }
-func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Expect) {
+func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Expect, verbose bool) {
 	fmt.Fprintln(buf, grey("<-"), resp.StatusCode)
 	for k, v := range resp.Header {
-		if slices.ContainsFunc(expected.Headers, func(header header) bool {
+		if verbose || slices.ContainsFunc(expected.Headers, func(header header) bool {
 			return header.Key == k
 		}) {
 			fmt.Fprintf(buf, grey("<- ")+"%s: %s\n", k, strings.Join(v, "; "))
