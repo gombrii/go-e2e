@@ -5,42 +5,35 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strings"
 )
 
 var variable *regexp.Regexp = regexp.MustCompile(`\$\w+`)
 
-type (
-	// Sequence is an ordered, named group of steps that run one after another, sharing a
-	// common data context. Declare it directly, alongside standalone Tests.
-	Sequence struct {
-		// The steps to run, in order.
-		Steps Steps
-	}
-	// Steps is an ordered slice of tests. Steps run sequentially and share a common data
-	// context, making it possible to pass captured values from one step to the next. Each
-	// step is displayed under its own "Step 1", "Step 2", etc. banner in output.
-	Steps []Test
-)
+// Sequence is a list of Test steps that run one after another, sharing a single context so
+// that data captured in one step (see Test.Capture) can be referenced by a later one using
+// the $-prefix. Sequence satisfies [Runnable], same as a standalone Test, so it's declared
+// directly as its own top-level exported variable.
+type Sequence []Test
 
 // run makes Sequence satisfy Runnable, letting it be declared alongside standalone Tests.
 // name is the key it was declared under in the map passed to Runner.Run. client, buf, and
 // data all come from Runner.Run too; Sequence just shares them with each of its own steps
 // in turn, giving each one its "Step N" label as its name.
 func (s Sequence) run(name string, verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) result {
+	//fmt.Fprintln(buf, yellow(center(strings.ToUpper("Sequence "+name), 31)))
+
 	allPassed := true
-
-	fmt.Fprintln(buf, yellow("\n", center(strings.ToUpper(name), 31)))
-
-	numRun := 0
-	for i, step := range s.Steps {
-		numRun = i + 1
-		if res := step.run(fmt.Sprintf("Step %d", i+1), verbose, client, buf, data); !res.passed {
+	for i, step := range s {
+		fmt.Fprintf(buf, "Step %d\n", i+1)
+		if res := step.run(name, verbose, client, buf, data); !res.passed {
 			allPassed = false
 			break
 		}
-		fmt.Fprintln(buf)
+		if i < len(s)-1 {
+			fmt.Fprintln(buf)
+		}
 	}
-	fmt.Fprintf(buf, "---------------------------------\nRESULT: %s\n", resultText(allPassed))
-	return result{buf, allPassed, numRun}
+	fmt.Fprintln(buf, yellow("---------------------------------\n"))
+
+	return result{buf, allPassed}
 }

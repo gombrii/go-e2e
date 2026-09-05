@@ -112,35 +112,24 @@ type (
 // name is the key this Test was declared under when standalone, or the "Step N" label a
 // Sequence assigns it when it's one of its steps. Either way it's printed as this run's
 // banner.
-func (t Test) run(name string, verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) (res result) {
-	res.buf = buf
-	res.numRun = 1
-
-	fmt.Fprintln(buf, "\n", center(name, 31))
-	defer func() {
-		fmt.Fprintf(buf, "---------------------------------\nRESULT: %s\n", resultText(res.passed))
-	}()
+func (t Test) run(name string, verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) result {
+	//fmt.Fprintln(buf, center(name, 16))
+	//fmt.Fprintln(buf, name)
 
 	if t.Before != nil {
 		description, err := t.Before(data)
 		fmt.Fprintf(buf, "Pre-test action: %v\n", description)
 		if err != nil {
 			fmt.Fprintf(buf, "\n%s: performing pre test action: %v\n", pink("ERROR"), err)
-			return
+			return result{buf: buf, passed: false}
 		}
 	}
 
 	t.Request = inject(t.Request, data)
+	body, passed := performTest(client, buf, t.Request, t.Expect, verbose)
+	capture(body, data, t.Capture, buf)
 
-	body, tr := performTest(client, buf, t.Request, t.Expect, verbose)
-	if !tr.passed {
-		return
-	}
-
-	capture(body, data, t.Capture)
-
-	res.passed = true
-	return
+	return result{buf: buf, passed: passed}
 }
 
 func inject(req Request, data map[string]string) Request {
@@ -166,10 +155,13 @@ func inject(req Request, data map[string]string) Request {
 	return req
 }
 
-func capture(body map[string][]string, data map[string]string, captors Captors) {
+func capture(body map[string][]string, data map[string]string, captors Captors, buf *bytes.Buffer) {
 	for _, c := range captors {
 		if val, ok := body[c]; ok {
-			data[c] = fmt.Sprint(val[0]) ////TODO: Only loops through surface level fields.
+			if len(val) > 1 {
+				fmt.Fprintf(buf, "%s: capturing field %q: %v\n", yellow("WARNING"), c, "response field contains multiple values. Captures first one.")
+			}
+			data[c] = fmt.Sprint(val[0])
 		}
 	}
 }

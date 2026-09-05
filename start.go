@@ -23,7 +23,6 @@ type Runner struct {
 type result struct {
 	buf    *bytes.Buffer
 	passed bool
-	numRun int
 }
 
 // Runnable is satisfied by Sequence and Test, letting Runner.Run declare a container type
@@ -50,7 +49,6 @@ func (r Runner) Run(tests map[string]Runnable) {
 			return http.ErrUseLastResponse
 		},
 	}
-	numRun := 0
 	numPassed := 0
 	results := []result{}
 
@@ -59,7 +57,9 @@ func (r Runner) Run(tests map[string]Runnable) {
 		wg.Add(1)
 		go func(name string, t Runnable) {
 			defer wg.Done()
-			ch <- t.run(name, r.Verbose, client, &bytes.Buffer{}, make(map[string]string))
+			buf := &bytes.Buffer{}
+			fmt.Fprintln(buf, yellow(center(strings.ToUpper(name), 31)))
+			ch <- t.run(name, r.Verbose, client, buf, make(map[string]string))
 		}(name, t)
 	}
 
@@ -72,7 +72,6 @@ func (r Runner) Run(tests map[string]Runnable) {
 		if result.passed {
 			numPassed++
 		}
-		numRun += result.numRun
 		results = append(results, result)
 		drawProgressBar(results, len(tests))
 	}
@@ -83,9 +82,10 @@ func (r Runner) Run(tests map[string]Runnable) {
 	fmt.Printf(`
 ---------------------------------
 TOTAL RESULT: %s
-Num tests run: %5d (%d http calls)
+Num tests run: %5d
 Failed tests: %6d
-`, resultText(allPassed), len(tests), numRun, numFailed)
+
+`, resultText(allPassed), len(tests), numFailed)
 
 	input := confirm(`Do you want to see full output (vs only failed)? [y/N]: `)
 	full := strings.ToLower(strings.Trim(input, "\n")) == "y"

@@ -67,6 +67,10 @@ func resultText(success bool) string {
 	return red("FAIL")
 }
 
+func ensureEndingNL(text string) string {
+	return strings.TrimRight(text, "\n") + "\n"
+}
+
 func format(data []byte, contentType string) string {
 	var out bytes.Buffer
 
@@ -74,7 +78,7 @@ func format(data []byte, contentType string) string {
 	case strings.Contains(contentType, "json"):
 		err := json.Indent(&out, data, "", "  ")
 		if err != nil {
-			return strings.TrimSpace(string(data)) + "\n"
+			return strings.TrimSpace(string(data))
 		}
 	case strings.Contains(contentType, "xml"):
 		decoder := xml.NewDecoder(bytes.NewReader(data))
@@ -87,23 +91,23 @@ func format(data []byte, contentType string) string {
 				if err == io.EOF {
 					break
 				}
-				return strings.TrimSpace(string(data)) + "\n"
+				return strings.TrimSpace(string(data))
 			}
 			if t, ok := tok.(xml.CharData); ok && strings.TrimSpace(string(t)) == "" {
 				continue
 			}
 			if err := encoder.EncodeToken(tok); err != nil {
-				return strings.TrimSpace(string(data)) + "\n"
+				return strings.TrimSpace(string(data))
 			}
 		}
 		if err := encoder.Flush(); err != nil {
-			return strings.TrimSpace(string(data)) + "\n"
+			return strings.TrimSpace(string(data))
 		}
 	default:
-		return strings.TrimSpace(string(data)) + "\n"
+		return strings.TrimSpace(string(data))
 	}
 
-	return out.String() + "\n"
+	return out.String()
 }
 
 func drawProgressBar(results []result, total int) {

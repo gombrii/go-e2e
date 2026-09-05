@@ -10,48 +10,44 @@ import (
 	"strings"
 )
 
-type testResult struct {
-	buf    *bytes.Buffer
-	passed bool
-}
-
-func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected Expect, verbose bool) (parsedBody map[string][]string, res testResult) {
+func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected Expect, verbose bool) (parsedBody map[string][]string, res bool) {
 	printReq(buf, req)
 
 	resp, err := makeRequest(client, req)
 	if err != nil {
-		fmt.Fprintf(buf, "\n%s: making request: %v\n", pink("ERROR"), err)
-		return map[string][]string{}, testResult{buf, false}
+		fmt.Fprintf(buf, "%s: making request: %v\n", pink("ERROR"), err)
+		return map[string][]string{}, false
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Fprintf(buf, "\n%s: reading response body: %v\n", pink("ERROR"), err)
-		return map[string][]string{}, testResult{buf, false}
+		fmt.Fprintf(buf, "%s: reading response body: %v\n", pink("ERROR"), err)
+		return map[string][]string{}, false
 	}
 
 	printResp(buf, resp, body, expected, verbose)
 
 	parsedBody, err = parseBody(body, resp.Header.Get("Content-Type"))
 	if err != nil {
-		fmt.Fprintf(buf, "\n%s: parsing response body: %v\n", yellow("WARNING"), err)
+		fmt.Fprintf(buf, "%s: parsing response body: %v\n", yellow("WARNING"), err)
 	}
 
 	if err := assertStatus(expected.Status, resp.StatusCode); err != nil {
-		fmt.Fprintf(buf, "\n%s: status: %v\n", pink("FAIL"), err)
-		return map[string][]string{}, testResult{buf, false}
+		fmt.Fprintf(buf, "%s: status: %v\n", pink("FAIL"), err)
+		return map[string][]string{}, false
 	}
 	if err := assertHeaders(expected.Headers, resp.Header); err != nil {
-		fmt.Fprintf(buf, "\n%s: header: %v\n", pink("FAIL"), err)
-		return map[string][]string{}, testResult{buf, false}
+		fmt.Fprintf(buf, "%s: header: %v\n", pink("FAIL"), err)
+		return map[string][]string{}, false
 	}
 	if err := assertBody(expected.Body, parsedBody); err != nil {
-		fmt.Fprintf(buf, "\n%s: body: %v\n", pink("FAIL"), err)
-		return map[string][]string{}, testResult{buf, false}
+		fmt.Fprintf(buf, "%s: body: %v\n", pink("FAIL"), err)
+		return map[string][]string{}, false
 	}
 
-	return parsedBody, testResult{buf, true}
+	fmt.Fprintln(buf, green("SUCCESS"))
+	return parsedBody, true
 }
 
 func makeRequest(client *http.Client, reqSetup Request) (*http.Response, error) {
@@ -78,7 +74,7 @@ func printReq(buf *bytes.Buffer, req Request) {
 		fmt.Fprintf(buf, grey("-> ")+"%s: %s\n", k, v)
 	}
 	if len(req.Body) > 0 {
-		fmt.Fprint(buf, grey("-> ")+format([]byte(req.Body), req.Headers["Content-Type"]))
+		fmt.Fprint(buf, grey("-> ")+ensureEndingNL(format([]byte(req.Body), req.Headers["Content-Type"])))
 	}
 }
 func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Expect, verbose bool) {
@@ -90,7 +86,7 @@ func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Exp
 	}
 	formattedBody := ""
 	if len(body) > 0 {
-		formattedBody = grey("<- ") + format(body, resp.Header.Get("Content-Type"))
+		formattedBody = grey("<- ") + ensureEndingNL(format(body, resp.Header.Get("Content-Type")))
 	}
 	fmt.Fprint(buf, formattedBody)
 }
