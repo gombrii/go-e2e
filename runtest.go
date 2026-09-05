@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 )
@@ -62,8 +61,8 @@ func makeRequest(client *http.Client, reqSetup Request) (*http.Response, error) 
 		return nil, fmt.Errorf("setting up: %v", err)
 	}
 
-	for _, h := range reqSetup.Headers {
-		req.Header.Add(h.Key, h.Val)
+	for k, v := range reqSetup.Headers {
+		req.Header.Add(k, v)
 	}
 
 	resp, err := client.Do(req)
@@ -76,8 +75,8 @@ func makeRequest(client *http.Client, reqSetup Request) (*http.Response, error) 
 
 func printReq(buf *bytes.Buffer, req Request) {
 	fmt.Fprintln(buf, grey("->"), req.Method, req.URL)
-	for _, h := range req.Headers {
-		fmt.Fprintf(buf, grey("-> ")+"%s: %s\n", h.Key, h.Val)
+	for k, v := range req.Headers {
+		fmt.Fprintf(buf, grey("-> ")+"%s: %s\n", k, v)
 	}
 	if len(req.Body) > 0 {
 		fmt.Fprint(buf, grey("-> ")+format([]byte(req.Body), req.Content))
@@ -86,9 +85,7 @@ func printReq(buf *bytes.Buffer, req Request) {
 func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Expect, verbose bool) {
 	fmt.Fprintln(buf, grey("<-"), resp.StatusCode)
 	for k, v := range resp.Header {
-		if verbose || slices.ContainsFunc(expected.Headers, func(header header) bool {
-			return header.Key == k
-		}) {
+		if _, inExpected := expected.Headers[k]; verbose || inExpected {
 			fmt.Fprintf(buf, grey("<- ")+"%s: %s\n", k, strings.Join(v, "; "))
 		}
 	}
@@ -106,21 +103,21 @@ func assertStatus(expected int, actual int) error {
 	return nil
 }
 
-func assertHeaders(expected []header, actual http.Header) error {
-	for _, h := range expected {
-		res, ok := actual[h.Key]
+func assertHeaders(expected Headers, actual http.Header) error {
+	for key, val := range expected {
+		res, ok := actual[key]
 		if !ok {
-			return fmt.Errorf("missing %q", h.Key)
+			return fmt.Errorf("missing %q", key)
 		}
 
 		hasValue := false
 		for _, v := range res {
-			if strings.Contains(fmt.Sprint(v), fmt.Sprint(h.Val)) {
+			if strings.Contains(v, val) {
 				hasValue = true
 			}
 		}
 		if !hasValue {
-			return fmt.Errorf("missing value for %q. Want at least: %q", h.Key, h.Val)
+			return fmt.Errorf("missing value for %q. Want at least: %q", key, val)
 		}
 	}
 	return nil

@@ -31,8 +31,7 @@ type (
 		// The URL to send the request to. Can be a hard-coded string or a value looked up
 		// dynamically using [addr.Lookup] or [addr.EnvLookup].
 		URL string
-		// Additional headers to send with the request. Duplicate keys are combined into
-		// multi-value headers.
+		// Additional headers to send with the request.
 		Headers Headers
 		// Shorthand for the Content-Type header. Setting this is equivalent to adding a
 		// Content-Type entry to [Request.Headers].
@@ -88,20 +87,18 @@ type (
 )
 
 type (
-	// Headers is a slice of key-value pairs representing HTTP request or response headers.
-	// Duplicate keys are allowed.
-	Headers []header
-	header  struct {
-		Key string
-		Val string
-	}
+	// Headers is a map of header names to values for use in HTTP requests and response assertions.
+	Headers map[string]string
 	// Body is a map of dot-separated field paths to expected values. See [Expect.Body].
 	Body map[string]any
 )
 
 func (t test) run(client *http.Client, buf *bytes.Buffer, data map[string]string, verbose bool) (result testResult) {
 	if t.Request.Content != "" {
-		t.Request.Headers = append(t.Request.Headers, header{"Content-Type", t.Request.Content})
+		if t.Request.Headers == nil {
+			t.Request.Headers = make(Headers)
+		}
+		t.Request.Headers["Content-Type"] = t.Request.Content
 	}
 
 	for _, action := range t.Before {
@@ -137,12 +134,11 @@ func inject(req Request, data map[string]string) Request {
 		s = strings.TrimPrefix(s, "$")
 		return data[s]
 	})
-	for i, h := range req.Headers {
-		h.Val = variable.ReplaceAllStringFunc(h.Val, func(s string) string {
+	for k, v := range req.Headers {
+		req.Headers[k] = variable.ReplaceAllStringFunc(v, func(s string) string {
 			s = strings.TrimPrefix(s, "$")
 			return data[s]
 		})
-		req.Headers[i] = h
 	}
 	req.Body = variable.ReplaceAllStringFunc(req.Body, func(s string) string {
 		s = strings.TrimPrefix(s, "$")

@@ -157,7 +157,7 @@ There are many more parameters to a test.
 		Method:  "POST",
 		URL:     "mydomain.com",
 		Headers: e2e.Headers{
-			{Key: "Accept", Val: "application/json"},
+			"Accept": "application/json",
 		},
 		Content: "application/json",
 		Body:    `{"userId": "1", "pass": "$pwd"}`,
@@ -171,7 +171,7 @@ There are many more parameters to a test.
 			"completed": "false",
 		},
 		Headers: e2e.Headers{
-			{Key: "Content-Type", Val: "application/json"}
+			"Content-Type": "application/json",
 		},
 	},
 	Capture: e2e.Captors{"completed"}, // Advanced property
@@ -236,7 +236,7 @@ e2e.Suite{
 			Expect: e2e.Expect{
 				Status: 200,
 				Headers: e2e.Headers{
-					{"Set-Cookie", "session_id=abc123xyz"},
+					"Set-Cookie": "session_id=abc123xyz",
 				},
 			},
 		},
@@ -287,7 +287,7 @@ e2e.Sequence{
 			Request: e2e.Request{
 				Method:  "POST",
 				URL:     "mydomain.com/auth/token",
-				Headers: e2e.Headers{{Key: "Authorization", Val: "Bearer $token"}}, // References the stored "token"
+				Headers: e2e.Headers{"Authorization": "Bearer $token"}, // References the stored "token"
 			},
 			Expect: e2e.Expect{
 				Status: 200,
