@@ -39,15 +39,15 @@ func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected E
 	}
 
 	if err := assertStatus(expected.Status, resp.StatusCode); err != nil {
-		fmt.Fprintf(buf, "\n%s: asserting status: %v\n", pink("FAIL"), err)
+		fmt.Fprintf(buf, "\n%s: status: %v\n", pink("FAIL"), err)
 		return map[string][]string{}, testResult{buf, false}
 	}
 	if err := assertHeaders(expected.Headers, resp.Header); err != nil {
-		fmt.Fprintf(buf, "\n%s: asserting header: %v\n", pink("FAIL"), err)
+		fmt.Fprintf(buf, "\n%s: header: %v\n", pink("FAIL"), err)
 		return map[string][]string{}, testResult{buf, false}
 	}
 	if err := assertBody(expected.Body, parsedBody); err != nil {
-		fmt.Fprintf(buf, "\n%s: asserting body: %v\n", pink("FAIL"), err)
+		fmt.Fprintf(buf, "\n%s: body: %v\n", pink("FAIL"), err)
 		return map[string][]string{}, testResult{buf, false}
 	}
 

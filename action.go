@@ -52,7 +52,7 @@ func Delay(delay string) Action {
 // Input prompts the user for a string value before the test runs. prompt is the message
 // shown to the user. The entered value is stored under mapTo and can be referenced
 // elsewhere in the test using the $-prefix, e.g. "$mapTo".
-func Input(prompt string, mapTo string) Action {
+func Input(prompt, mapTo string) Action {
 	return func(data map[string]string) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()

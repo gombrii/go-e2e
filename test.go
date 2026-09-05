@@ -73,6 +73,19 @@ type (
 		//		"root.item@attr": "attrval",
 		//	}
 		//
+		// Arrays and repeated tags don't add an index to the path — every element is flattened
+		// onto the same path as its parent field. A path can therefore resolve to multiple
+		// values, and the assertion passes if any one of them contains the expected value:
+		//
+		//	// Matches
+		//	// {
+		//	//   "items": [
+		//	//     {"id": 1},
+		//	//     {"id": 2}
+		//	//   ]
+		//	// }
+		//	Body{"items.id": "2"} // Passes: one of the items has id 2
+		//
 		// In both formats the expected value only needs to be contained within the actual value,
 		// not match it exactly. Setting the expected value to "" asserts only that the field
 		// exists.
