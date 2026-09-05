@@ -101,7 +101,7 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 							continue
 						}
 						typeName := named.Obj().Name()
-						if typeName != "Suite" && typeName != "Sequence" {
+						if typeName != "Sequence" {
 							continue
 						}
 

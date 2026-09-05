@@ -3,14 +3,12 @@
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/gombrii/go-e2e)
 
 # Go-e2e
-> Disclaimer: This is just a small library and an application I wrote to test my own HTTP APIs. It's only written for my own personal use and guarantees nothing. It's not tested and it only supports my own narrow set of requrements.
+Go-e2e is created to be a quick and concurrent facilitator of HTTP API tests.
 
-Go-e2e was written to be a quick and concurrent facilitator of HTTP API tests.
-
-There are two parts to this project: the `e2e` library and the `e2e` tool. The library is used to define test cases while the tool runs them.
+There are two parts to this project: the `e2e` library and the `e2e` tool. The library is used to define test cases that can then be run using the tool.
 
 ## Getting started
-The most minimal setup needed to run tests is a catalogue containing a `go.mod` file and one `.go` file. That setup will be used for this setup guide.
+Tests are declared in Go modules. A minimal setup is a catalogue containing a `go.mod` file and one `.go` file. That setup will be used for this setup guide.
 
 Run these commands.
 
@@ -18,7 +16,7 @@ Run these commands.
 mkdir mytests
 cd mytests
 go mod init
-touch setup.go
+touch test.go
 ```
 
 You should then have this project catalogue.
@@ -26,23 +24,43 @@ You should then have this project catalogue.
 ```
 mytests/
 ├── go.mod
-└── setup.go
+└── test.go
 ```
 
-To create tests you will also need to depend on `github.com/gombrii/go-e2e`
+Before writing any tests get the `github.com/gombrii/go-e2e` module.
 
 ```shell
 # Inside catalogue mytests
 go get github.com/gombrii/go-e2e@latest
 ```
 
-To run tests you either have to install the `e2e` tool or run it with `go run` using its install URL `github.com/gombrii/go-e2e/cmd/e2e`.
+To eventually run tests you either have to install the `e2e` tool or run it with `go run` using its install URL `github.com/gombrii/go-e2e/cmd/e2e`.
 
 ```shell
 go install github.com/gombrii/go-e2e/cmd/e2e@latest
 ```
 
-With this basic structure you can define tests that you run with the `e2e` tool. The `setup.go` file can contain any setup as well as any number of tests. For reasons that will be described later in this guide, not least of all simply organisational, you might want to define multiple files in multiple packages.
+With this basic structure you can define tests that you run with the `e2e` tool. Try pasting the following test into your `test.go` and run it with `e2e test.go`. Read more about running tests under [Usage](#usage)
+
+```go
+var MyTest = e2e.Sequence{
+	Name: "My test GET 200",
+	Steps: e2e.Steps{
+		{
+			Request: e2e.Request{
+				Method: "GET",
+				URL:    "https://httpbin.org/get",
+			},
+			Expect: e2e.Expect{
+				Status: 200,
+			},
+		},
+	},
+}
+```
+
+### More advanced example
+The `setup.go` file in the example below is not required but is a good place to declare project level setup instructions as described in [Setup and teardown](#setup-and-teardown-optional) and [Addressbook](#addressbook-optional). For reasons that will be described later in this guide, not least of all simply organisational, you might want to define multiple files in multiple packages. How you choose to name your packages is up to you.
 
 Eg.
 ```
@@ -50,13 +68,13 @@ mytests/
 ├── go.mod
 ├── setup.go
 ├── smoketests/
-│   ├── suite1.go
-│   ├── suite2.go
-│   └── suite3.go
+│   ├── test1.go
+│   ├── test2.go
+│   └── test3.go
 └── manualtests/
-    ├── suite1.go
-    ├── suite2.go
-    └── suite3.go
+    ├── test1.go
+    ├── test2.go
+    └── test3.go
 ```
 
 ## e2e tool
@@ -69,13 +87,14 @@ A test run can look something like this:
 ### Usage
 
 ```
-e2e <pattern> [env]
+e2e [-v] <pattern> [env]
 ```
 
-- `pattern` describes the location of the tests you want to run. It uses the same format as `go test`. To run all tests in the project pass `./...`. You can also run all tests in a package or all tests in a file by providing their respective paths, eg. `./smoketests` or `./smoketests/suite1.go` 
+- `-v` is a boolean flag making the test output more verbose. Specifically it prints all response headers. Otherwise only the headers the test expects are printed.
+- `pattern` describes the location of the tests you want to run. It uses the same format as `go test`. To run all tests in the project pass `./...`. You can also run all tests in a package or all tests in a file by providing their respective paths, eg. `./smoketests` or `./smoketests/test1.go` 
 - `env` is an optional string value that if passed can be used for runtime lookups in the [`Addressbook`](#addressbook-optional) provided by the `e2e` library. This enables quick switching between testing base URLs specific to different environments.
 
-Upon being run the `e2e` tool will look for any exported variables of type [`Suite`](#suites) or [`Sequence`](#sequences) in the location targeted by the [`pattern`](#usage) provided and run them.
+Upon being run the `e2e` tool will look for any exported variables of type `Sequence` in the location targeted by the [`pattern`](#usage) provided and run them.
 
 ### Setup and teardown (optional)
 There are two hooks that, if defined in the module root, will be run before and after each `e2e` tool run. These hooks can be used to perform any setup and/or teardown needed.
@@ -93,39 +112,38 @@ func AfterRun(any) {
 For `e2e` to run them make sure to match their respective signatures exactly. Take note that they are exported. Whatever is returned by `BeforeRun` is what will be passed to `AfterRun` and can be accessed using a type assertion. If `BeforeRun` is not declared but `AfterRun` is, then `nil` will be passed.
 
 ### AddressBook (optional)
-The `Addressbook` is a feature provided by the `e2e` library that enables runtime address lookup using a predefined addressbook in combination with the [`env`](#usage) parameter. This is to be able to make tests environment agnostic. Instead of an URL, a test will be targeted toward a service defined in the `Addressbook`. The `env` passed will then decide which instance of that service's URLs will be used.
+The `AddressBook` is a feature provided by the `addr` package that enables runtime address lookup using a predefined addressbook in combination with the [`env`](#usage) parameter. This is to be able to make tests environment agnostic. Instead of a hardcoded URL, a test will be targeted toward a named address defined in the `AddressBook`. The `env` passed will then decide which variant of that address will be used.
 
-`AddressBook` is a nested `map` which you can register with a call to `SetAddressBook` in the `init` hook in the project root.
+`AddressBook` is a nested `map` which you can register with a call to `addr.Set` in the `init` hook in the project root.
 
 ```go
+import "github.com/gombrii/go-e2e/addr"
+
 func init() {
-	e2e.SetAddressBook(e2e.AddressBook{
+	addr.Set(addr.AddressBook{
 		"local": {
-			"authservice":    "https://localhost:8080/api/v1/auth",
-			"userservice":    "https://localhost:8081/api/v1/users",
-			"paymentservice": "https://localhost:8082/api/v1/pay",
+			"auth":  "http://localhost:8080/api/v1/auth",
+			"users": "http://localhost:8081/api/v1/users",
 		},
 		"dev": {
-			"authservice":    "https://dev.mysite-test.com/api/v1/auth",
-			"userservice":    "https://dev.mysite-test.com/api/v1/users",
-			"paymentservice": "https://dev.mysite-test.com/api/v1/pay",
+			"auth":  "https://auth.dev.example.com/api/v1/auth",
+			"users": "https://users.dev.example.com/api/v1/users",
 		},
 		"prod": {
-			"authservice":    "https://mysite.com/api/v1/auth",
-			"userservice":    "https://mysite.com/api/v1/users",
-			"paymentservice": "https://mysite.com/api/v1/pay",
+			"auth":  "https://auth.example.com/api/v1/auth",
+			"users": "https://users.example.com/api/v1/users",
 		},
 	})
 }
 ```
 
-Having registred an `Addressbook` makes it possible to make lookups in tests like so `e2e.Addr("paymentservice")`. Paths can easily be appended using the plus operator.
+Having registered an `AddressBook` makes it possible to perform lookups in tests like so `addr.Lookup("users")`. Paths can easily be appended using the plus operator.
 
 ```go
-e2e.Addr("paymentservice") + "/creditcard"
+addr.Lookup("users") + "/user_2430"
 
-// Alternatively e2e.EnvAddr can be used to override the `env` parameter
-e2e.EnvAddr("dev", "paymentservice") + "/creditcard"
+// Alternatively addr.EnvLookup can be used to override the `env` parameter. Inflexible, but sometimes handy.
+addr.EnvLookup("dev", "users") + "/user_2430"
 ```
 
 ## e2e library
@@ -202,50 +220,10 @@ In the above example the test would pass if the response body as a field "title"
 
 The `Capture` property allows some data to be captured from the HTTP response in a test. This is discussed further in the [`Sequences`](#sequences) section.
 
-### Suites
-Tests can not exist on their own but must be put in a type of suite. There are two types `Suite` and `Sequence`. `Suite` is the simplest one. A `Suite` has a name and an unordered set of independent named tests that run concurrently.
-
-```go
-e2e.Suite{
-	Name: "myService",
-	Tests: e2e.Tests{
-		"ping": {
-			Request: e2e.Request{
-				Method: "GET",
-				URL:    "mydomain.com/ping",
-			},
-			Expect: e2e.Expect{
-				Status: 200,
-			},
-		},
-		"create": {
-			Request: e2e.Request{
-				Method: "POST",
-				URL:    "mydomain.com/creatething",
-			},
-			Expect: e2e.Expect{
-				Status: 201,
-			},
-		},
-		"auth": {
-			Request: e2e.Request{
-				Method: "POST",
-				URL:    "mydomain.com/login",
-				Body:   `{"user": "username", "password": "password"}`,
-			},
-			Expect: e2e.Expect{
-				Status: 200,
-				Headers: e2e.Headers{
-					"Set-Cookie": "session_id=abc123xyz",
-				},
-			},
-		},
-	},
-}
-```
-
 ### Sequences
-A `Sequence` works similarly to a `Suite` but not exactly. Superficially the tests it contains are unnamed and are called steps. But importantly steps in a `Sequence` are run sequentially and in a common context. This means that data can be transferred from one step to the next and makes it possible to perform and test a chain of HTTP calls which build on eachother. The main mechanism to achieve this is the [captor](#advanced). A captor is a key listed in the `Capture` block of a test. If done the captor will capture the value of a field matching the captor key in the body returned in the HTTP response in the test. The captured value can be referenced later in the `Sequence` using the `$`-prefix. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) before-action. Captured values can be referenced in all parts of a test, even in before-actions. This means that a token returned in an HTTP response in a test can be referenced in a `Command` before-action in a later test to display a QR code, for example.
+Tests must be put together in a `Sequence`. A `Sequence` has a name and a list of steps that run one after another, in a shared context. This means that data can be transferred from one step to the next and makes it possible to perform and test a chain of HTTP calls which build on eachother. The main mechanism to achieve this is the [captor](#advanced). A captor is a key listed in the `Capture` block of a test. If done the captor will capture the value of a field matching the captor key in the body returned in the HTTP response in the test. The captured value can be referenced later in the `Sequence` using the `$`-prefix. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) before-action. Captured values can be referenced in all parts of a test, even in before-actions. This means that a token returned in an HTTP response in a test can be referenced in a `Command` before-action in a later test to display a QR code, for example.
+
+A `Sequence` with just a single step behaves like a plain standalone test; the shared context and sequential order only start to matter once there's more than one.
 
 ```go
 e2e.Sequence{
@@ -310,10 +288,7 @@ e2e.Sequence{
 }
 ```
 
-### Use Suite or Sequence?
-Although they are similar they have some obvious and less obvious pros and cons respectively. The pros of Sequences are quite obvious in that they let tests share data between eachother. The drawback is that they run in sequence which is slower. Since tests in Suites are independent of eachother they can be run in parallell. If multiple Suites and Sequences are run in one go each Suite and Sequence will always run in parallell with eachother.
-
-> Last tip: Since any [before-action](#advanced) will require user input when running the test it is a good idea to think about how tests are organized in packages and files. It can be useful to have a separate catalogue of tests that can be run as a smoke suite without needing user input. Tests that require user input can instead be used to test more intricate features of an API.
+> Last tip: Since any [before-action](#advanced) will require user input when running the test it is a good idea to think about how tests are organized in packages and files. It can be useful to have a separate catalogue of tests that can be run without needing user input, keeping tests that do require it separate to cover more intricate features of an API.
 
 ## Concurrency and performance
-Since `go-e2e` is a concurrent tool tests don't scale linearly. From my own manual testing it seems to scale pretty constantly `O(1)` and run whatever amount of tests in about a second or two. `go-e2e` has been tested with at most about 370 tests.
+Since `go-e2e` is a concurrent tool tests don't scale linearly. Tests run in parallell. From my own manual testing it seems to scale pretty constantly `O(1)` and run whatever amount of tests in about a second or two. `go-e2e` has been tested with at most about 370 tests.

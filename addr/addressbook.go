@@ -1,6 +1,6 @@
 // Package addr provides the AddressBook, a registry that maps environments to named
 // addresses. It allows tests to resolve URLs at runtime based on the env argument
-// passed to the e2e tool, making test suites environment-agnostic.
+// passed to the e2e tool, making tests environment-agnostic.
 package addr
 
 import (

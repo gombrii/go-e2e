@@ -12,16 +12,12 @@ import (
 	"time"
 )
 
-// Runner is the engine that executes test suites and sequences. It is used internally
-// by the e2e tool and does not need to be instantiated directly.
+// Runner is the engine that executes tests. It is used internally by the e2e tool
+// and does not need to be instantiated directly.
 type Runner struct {
 	BeforeRun func() any // Called before any tests run. Corresponds to BeforeRun in the project root.
 	AfterRun  func(any)  // Called after all tests have run. Corresponds to AfterRun in the project root.
 	Verbose   bool       // When true, all response headers are printed, not only expected ones.
-}
-
-type set interface {
-	run(*http.Client, bool) result
 }
 
 type result struct {
@@ -30,9 +26,9 @@ type result struct {
 	numRun int
 }
 
-// Run executes the given suites and sequences, prints the output, and prompts for
-// confirmation before showing full results. Called by the e2e tool.
-func (r Runner) Run(sets ...set) {
+// Run executes the given tests, prints the output, and prompts for confirmation
+// before showing full results. Called by the e2e tool.
+func (r Runner) Run(sequences ...Sequence) {
 	r.ensureHooks()
 	before := r.BeforeRun()
 	defer r.AfterRun(before)
@@ -50,12 +46,12 @@ func (r Runner) Run(sets ...set) {
 	numPassed := 0
 	results := []result{}
 
-	drawProgressBar(results, len(sets))
-	for _, s := range sets {
+	drawProgressBar(results, len(sequences))
+	for _, s := range sequences {
 		wg.Add(1)
-		go func(set set) {
+		go func(seq Sequence) {
 			defer wg.Done()
-			ch <- set.run(client, r.Verbose)
+			ch <- seq.run(client, r.Verbose)
 		}(s)
 	}
 
@@ -70,20 +66,20 @@ func (r Runner) Run(sets ...set) {
 		}
 		numRun += result.numRun
 		results = append(results, result)
-		drawProgressBar(results, len(sets))
+		drawProgressBar(results, len(sequences))
 	}
 
-	allPassed := numPassed == len(sets)
-	numFailed := len(sets) - numPassed
+	allPassed := numPassed == len(sequences)
+	numFailed := len(sequences) - numPassed
 
 	fmt.Printf(`
 ---------------------------------
 TOTAL RESULT: %s
-Num sets run: %5d (%d tests)
-Failed sets: %6d
-`, resultText(allPassed), len(sets), numRun, numFailed)
+Num tests run: %5d (%d http calls)
+Failed tests: %6d
+`, resultText(allPassed), len(sequences), numRun, numFailed)
 
-	input := confirm(`Do you want to see full test logs (vs only failed)? [y/N]: `)
+	input := confirm(`Do you want to see full output (vs only failed)? [y/N]: `)
 	full := strings.ToLower(strings.Trim(input, "\n")) == "y"
 
 	for _, result := range results {

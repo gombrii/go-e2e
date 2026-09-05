@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 var progressBarMutex = sync.Mutex{}
@@ -23,6 +24,20 @@ func moveDown(lines int) {
 }
 func clearLine() {
 	fmt.Print("\033[2K")
+}
+
+func center(text string, width int) string {
+	n := utf8.RuneCountInString(text)
+
+	if n >= width {
+		return text
+	}
+
+	totalPad := width - n
+	left := totalPad / 2 // Since int division left side loses one pad if total pad is uneven.
+	right := totalPad - left
+
+	return strings.Repeat("-", left) + " " + text + " " + strings.Repeat("-", right)
 }
 
 func red(text ...any) string {

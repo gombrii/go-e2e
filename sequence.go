@@ -28,13 +28,13 @@ func (s Sequence) run(client *http.Client, verbose bool) result {
 	allPassed := true
 	data := make(map[string]string)
 
-	fmt.Fprintln(buf, yellow("\n---------------------------------"))
-	fmt.Fprintln(buf, yellow(" TEST SEQUENCE - ", strings.ToUpper(s.Name)))
-	fmt.Fprintln(buf, yellow("---------------------------------"))
+	fmt.Fprintln(buf, yellow("\n", center(strings.ToUpper(s.Name), 31)))
 
 	numRun := 0
 	for i, step := range s.Steps {
-		fmt.Fprintln(buf, "Step", i+1)
+		if len(s.Steps) > 1 {
+			fmt.Fprintln(buf, "Step", i+1)
+		}
 		numRun = i + 1
 		if result := step.run(client, buf, data, verbose); !result.passed {
 			allPassed = false
@@ -42,6 +42,6 @@ func (s Sequence) run(client *http.Client, verbose bool) result {
 		}
 		fmt.Fprintln(buf)
 	}
-	fmt.Fprintf(buf, "---------------------------------\nSEQUENCE RESULT: %s\n", resultText(allPassed))
+	fmt.Fprintf(buf, "---------------------------------\nRESULT: %s\n", resultText(allPassed))
 	return result{buf, allPassed, numRun}
 }
