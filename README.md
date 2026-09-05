@@ -326,3 +326,6 @@ addr.EnvLookup("dev", "users") + "/user_2430"
 
 ## Concurrency and performance
 Since `go-e2e` is a concurrent tool tests don't scale linearly. Tests run in parallel. From my own manual testing it seems to scale pretty constantly `O(1)` and run whatever amount of tests in about a second or two. `go-e2e` has been tested with at most about 370 tests simultaneously.
+
+## AI usage
+The idea and design of this project was my own because I needed to test APIs, didn't know enough about tools like Postman and wanted to learn. What better way is there than to write Go code, right? AI has been used throughout the project to bounce ideas. For some parts I have relied more on AI as a sounding board, such as the [code generation and reflection parts](cmd/e2e/load.go). Only recently (today as of the date of this commit) have I actually let AI generate any code. But all code has been reviewed line by line and fixed and refined. I need to practice working with AI because my work now forces me, sigh...
