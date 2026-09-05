@@ -157,10 +157,10 @@ There are many more parameters to a test.
 		Method:  "POST",
 		URL:     "mydomain.com",
 		Headers: e2e.Headers{
-			"Accept": "application/json",
+			"Accept":       "application/json",
+			"Content-Type": "application/json",
 		},
-		Content: "application/json",
-		Body:    `{"userId": "1", "pass": "$pwd"}`,
+		Body: `{"userId": "1", "pass": "$pwd"}`,
 	},
 	Expect: e2e.Expect{
 		Status:  200,
@@ -255,7 +255,7 @@ e2e.Sequence{
 			Request: e2e.Request{
 				Method:  "POST",
 				URL:     "mydomain.com/fingerprint/create",
-				Content: "application/json",
+				Headers: e2e.Headers{"Content-Type": "application/json"},
 				Body:    `{"user": "MyUser", "phone": "010111000",}`,
 			},
 			Expect: e2e.Expect{
@@ -272,7 +272,7 @@ e2e.Sequence{
 			Request: e2e.Request{
 				Method:  "POST",
 				URL:     "mydomain.com/fingerprint/apply",
-				Content: "application/json",
+				Headers: e2e.Headers{"Content-Type": "application/json"},
 				Body:    `{"print": "$fingerprint"}`, // References the captured "fingerprint"
 			},
 			Expect: e2e.Expect{

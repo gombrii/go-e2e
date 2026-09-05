@@ -58,7 +58,7 @@ func Set(book AddressBook) {
 // Returns the address registered under "auth" for the environment "dev".
 func Lookup(name string) string {
 	if os.Args[1] == "" {
-		fmt.Printf("No env argument provided — pass one to use AddressBook lookups, e.g. e2e ./mytests dev\n")
+		fmt.Printf("No env argument provided, pass one to use AddressBook lookups, e.g. e2e ./mytests dev\n")
 		os.Exit(badArgument)
 	}
 

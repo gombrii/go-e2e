@@ -33,9 +33,6 @@ type (
 		URL string
 		// Additional headers to send with the request.
 		Headers Headers
-		// Shorthand for the Content-Type header. Setting this is equivalent to adding a
-		// Content-Type entry to [Request.Headers].
-		Content string
 		// The request body as a string. Raw string literals are recommended for readability.
 		Body string
 	}
@@ -94,13 +91,6 @@ type (
 )
 
 func (t test) run(client *http.Client, buf *bytes.Buffer, data map[string]string, verbose bool) (result testResult) {
-	if t.Request.Content != "" {
-		if t.Request.Headers == nil {
-			t.Request.Headers = make(Headers)
-		}
-		t.Request.Headers["Content-Type"] = t.Request.Content
-	}
-
 	for _, action := range t.Before {
 		description, err := action(data)
 		fmt.Fprintf(buf, "Before test: %v\n", description)

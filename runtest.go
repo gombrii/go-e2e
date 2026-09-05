@@ -79,7 +79,7 @@ func printReq(buf *bytes.Buffer, req Request) {
 		fmt.Fprintf(buf, grey("-> ")+"%s: %s\n", k, v)
 	}
 	if len(req.Body) > 0 {
-		fmt.Fprint(buf, grey("-> ")+format([]byte(req.Body), req.Content))
+		fmt.Fprint(buf, grey("-> ")+format([]byte(req.Body), req.Headers["Content-Type"]))
 	}
 }
 func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Expect, verbose bool) {
