@@ -8,7 +8,7 @@ import (
 {{- end }}
 {{- range .Packages }}
 {{- if ne .PkgPath $.Setup.PkgPath }}
-	{{ .PkgName }} "{{ .PkgPath }}"
+	{{ .ImportAlias }} "{{ .PkgPath }}"
 {{- end }}
 {{- end }}
 	e2e{{ .Noise }} "github.com/gombrii/go-e2e"
@@ -27,7 +27,7 @@ func main() {
 {{- range .Packages }}
 	{{- $pkg := . }}
 	{{- range .ExportedVars }}
-		"{{ .DisplayName }}": {{ $pkg.PkgName }}.{{ .VarName }},
+		"{{ .DisplayName }}": {{ $pkg.ImportAlias }}.{{ .VarName }},
 	{{- end }}
 {{- end }}
 	})

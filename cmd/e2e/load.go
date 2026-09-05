@@ -20,8 +20,12 @@ type setup struct {
 }
 
 type packageInfo struct {
-	PkgPath      string
-	PkgName      string
+	PkgPath string
+	PkgName string
+	// ImportAlias is the identifier this package is imported under in the generated runner.
+	// It's the same as PkgName, unless that name collided with another package's, in which
+	// case it's suffixed with a number to stay a unique Go identifier.
+	ImportAlias  string
 	ExportedVars []exportedVar
 }
 
@@ -40,7 +44,7 @@ func load(wd, pattern string) (setup, []packageInfo, error) {
 		Dir:  wd,
 	}
 
-	hks, err := loadSetup(cfg)
+	stp, err := loadSetup(cfg)
 	if err != nil {
 		return setup{}, nil, err
 	}
@@ -50,7 +54,10 @@ func load(wd, pattern string) (setup, []packageInfo, error) {
 		return setup{}, nil, err
 	}
 
-	return hks, pkgs, nil
+	assignImportAliases(stp.PkgPath, stp.PkgName, pkgs)
+	disambiguateNames(pkgs)
+
+	return stp, pkgs, nil
 }
 
 func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, error) {
@@ -121,7 +128,7 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 		}
 
 		if len(exportedVars) > 0 {
-			packages = append(packages, packageInfo{pkg.PkgPath, pkg.Name, exportedVars})
+			packages = append(packages, packageInfo{PkgPath: pkg.PkgPath, PkgName: pkg.Name, ExportedVars: exportedVars})
 		}
 	}
 
@@ -129,18 +136,42 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 		return nil, errors.New("no tests provided")
 	}
 
-	disambiguateNames(packages)
-
 	return packages, nil
+}
+
+// assignImportAliases gives each package a unique Go import identifier to use in the
+// generated runner. Two different import paths can share a package name — e.g. two "tests"
+// packages living at different paths — and importing both under that same bare name would
+//
+// setupPkgPath and setupPkgName reserve the setup package's own name so that a different
+// package sharing it gets renumbered — and, when the setup package is itself one of these.
+func assignImportAliases(setupPkgPath, setupPkgName string, packages []packageInfo) {
+	seen := map[string]int{}
+	if setupPkgName != "" {
+		seen[setupPkgName] = 1
+	}
+	for i, pkg := range packages {
+		if pkg.PkgPath == setupPkgPath {
+			packages[i].ImportAlias = setupPkgName
+			continue
+		}
+		seen[pkg.PkgName]++
+		if n := seen[pkg.PkgName]; n > 1 {
+			packages[i].ImportAlias = fmt.Sprintf("%s%d", pkg.PkgName, n)
+		} else {
+			packages[i].ImportAlias = pkg.PkgName
+		}
+	}
 }
 
 // disambiguateNames guards against a name collision the generated runner can't recover
 // from: every exported var's own name becomes its key in the map passed to Runner.Run, so
 // two vars sharing a name — even across different packages — would otherwise produce a
 // duplicate map key and fail to compile. Rather than rejecting that, every var sharing a
-// colliding name gets its DisplayName prefixed with its own package name, e.g. "Ping"
-// declared in both "smoketests" and "manualtests" becomes "smoketests.Ping" and
-// "manualtests.Ping". Names with no collision are left as-is.
+// colliding name gets its DisplayName prefixed with its own (already-unique) import alias,
+// e.g. "Ping" declared in both "smoketests" and "manualtests" becomes "smoketests.Ping" and
+// "manualtests.Ping" — or, if both happen to be named "tests" too, "tests.Ping" and
+// "tests2.Ping". Names with no collision are left as-is. Must run after assignImportAliases.
 func disambiguateNames(packages []packageInfo) {
 	type loc struct{ pkgIdx, varIdx int }
 	locs := make(map[string][]loc)
@@ -155,7 +186,7 @@ func disambiguateNames(packages []packageInfo) {
 		}
 		for _, l := range ls {
 			pkg := &packages[l.pkgIdx]
-			pkg.ExportedVars[l.varIdx].DisplayName = pkg.PkgName + "." + name
+			pkg.ExportedVars[l.varIdx].DisplayName = pkg.ImportAlias + "." + name
 		}
 	}
 }
