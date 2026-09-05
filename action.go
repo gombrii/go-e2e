@@ -9,6 +9,9 @@ import (
 	"time"
 )
 
+// Action is a pre-test action run before a Test's request is made. It receives the shared
+// data map so it can read values captured by earlier steps and write data to be used later.
+// Use one of the helper functions [Delay], [Input], or [Command] to create one.
 type Action func(data map[string]string) (string, error)
 
 // Delay pauses execution for the given duration before the test runs. The duration is
