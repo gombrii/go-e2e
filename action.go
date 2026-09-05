@@ -9,6 +9,9 @@ import (
 	"time"
 )
 
+// Action is a pre-test action run before a Test's request is made. It receives the shared
+// data map so it can read values captured by earlier steps and write data to be used later.
+// Use one of the helper functions [Delay], [Input], or [Command] to create one.
 type Action func(data map[string]string) (string, error)
 
 // Delay pauses execution for the given duration before the test runs. The duration is
@@ -16,7 +19,7 @@ type Action func(data map[string]string) (string, error)
 // spinner while waiting.
 //
 // Useful when a previous step triggers something asynchronous that needs time to settle
-// before the next assertion — for example waiting for a cache to populate, for an
+// before the next assertion, for example waiting for a cache to populate, for an
 // eventual consistency window to close, or for a background job to complete.
 func Delay(delay string) Action {
 	return func(data map[string]string) (string, error) {

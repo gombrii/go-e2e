@@ -45,18 +45,13 @@ go install github.com/gombrii/go-e2e/cmd/e2e@latest
 With this basic structure you can define tests that you run with the `e2e` tool. Try pasting the following test into your `test.go` and run it with `e2e test.go`. Read more about running tests under [Usage](#usage)
 
 ```go
-var MyTest = e2e.Sequence{
-	Name: "My test GET 200",
-	Steps: e2e.Steps{
-		{
-			Request: e2e.Request{
-				Method: "GET",
-				URL:    "https://httpbin.org/get",
-			},
-			Expect: e2e.Expect{
-				Status: 200,
-			},
-		},
+var MyTest = e2e.Test{
+	Request: e2e.Request{
+		Method: "GET",
+		URL:    "https://httpbin.org/get",
+	},
+	Expect: e2e.Expect{
+		Status: 200,
 	},
 }
 ```
@@ -110,24 +105,24 @@ For `e2e` to run them make sure to match their respective signatures exactly. Ta
 ## e2e library
 The library needed to define tests consists of the `e2e` package, and the `addr` package for address book lookups.
 
-> Remember tests need to be declared in exported variables. The names of the variables do not matter.
+> Remember tests (and sequences) need to be declared in exported variables. The variable's name become's the test's name in test result output. If two different packages happen to declare one under the same name, `e2e` tells them apart by prefixing both with their package name.
 
 ### Tests
-The only strictly required parts of a test are the `Method` and `URL` fields of the `Request` section, but a test normally consists of at least both `Request` and `Expect`. The `Request` defines a single HTTP request to be made. The `Expect` defines expectations of the HTTP response. Tests which receive HTTP responses that don't meet the expectations count as failures.
+The only strictly required parts of a test are the `Method` and `URL` fields of the `Request` section, but a test normally consists of at least both `Request` and `Expect`. The `Request` defines a single HTTP request to be made. The `Expect` defines expectations of the HTTP response. Tests which receive HTTP responses that don't meet the expectations count as failures. A `Test` can be declared on its own, as below, or used as a step in a [`Sequence`](#sequences).
 
 ```go
-{
-    Request: e2e.Request{
-        Method: "GET",
-        URL:    "mydomain.com/ping",
-    },
-    Expect: e2e.Expect{
-        Status: 200,
-    },
+var Ping = e2e.Test{
+	Request: e2e.Request{
+		Method: "GET",
+		URL:    "mydomain.com/ping",
+	},
+	Expect: e2e.Expect{
+		Status: 200,
+	},
 }
 ```
 
-There are many more parameters to a test.
+There are many more parameters to a test. `Capture` only matters as a step in a [`Sequence`](#sequences). In a standalone `Test` it has no effect.
 
 ```go
 {
@@ -153,7 +148,7 @@ There are many more parameters to a test.
 			"Content-Type": "application/json",
 		},
 	},
-	Capture: e2e.Captors{"completed"}, // Advanced property
+	Capture: e2e.Captors{"completed"}, // Advanced property, see Sequences below
 }
 ```
 
@@ -202,7 +197,7 @@ Expect: e2e.Expect{
 },
 ```
 
-Arrays and repeated tags don't add an index to the path — every element is flattened onto the same path as its parent field. This means a path can resolve to several values, and the assertion passes if any one of them contains the expected value, letting you assert that some item in a list has a given field without needing to know its position.
+Arrays and repeated tags don't add an index to the path, every element is flattened onto the same path as its parent field. This means a path can resolve to several values, and the assertion passes if any one of them contains the expected value, letting you assert that some item in a list has a given field without needing to know its position.
 
 ```go
 // Matches
@@ -226,71 +221,66 @@ Expect: e2e.Expect{
 
 - `Input(prompt, mapTo string)` will prompt the user to input a string value before the test is run. `prompt` is the message shown to the user. `mapTo` is a key that can be referenced in the test using the `$`-prefix. In the example above `$pwd` is used to insert a password into the request body.
 - `Command(command string, args ...string)` will run a terminal command before the test is run. Its output will be displayed to the user after which the user will be prompted to press enter to continue. Usecases include fetching some local dynamic data, displaying a QR code, or anything else might be performed.
-- `Delay(delay string)` will pause execution for a given duration before the test is run. The duration is parsed using Go's standard duration format, e.g. `"500ms"` or `"2s"`. Useful when a previous step triggers something asynchronous that needs time to settle before the next assertion — for example waiting for a short-lived cache to expire, for an eventual consistency window to close, or for a background job to complete.
+- `Delay(delay string)` will pause execution for a given duration before the test is run. The duration is parsed using Go's standard duration format, e.g. `"500ms"` or `"2s"`. Useful when a previous step triggers something asynchronous that needs time to settle before the next assertion, for example waiting for a short-lived cache to expire, for an eventual consistency window to close, or for a background job to complete.
 
 The `Capture` property allows some data to be captured from the HTTP response in a test. This is discussed further in the [`Sequences`](#sequences) section.
 
 ### Sequences
-Tests must be put together in a `Sequence`. A `Sequence` has a name and a list of steps that run one after another, in a shared context. This means that data can be transferred from one step to the next and makes it possible to perform and test a chain of HTTP calls which build on eachother. The main mechanism to achieve this is the [captor](#advanced). A captor is a key listed in the `Capture` block of a test. If done the captor will capture the value of a field matching the captor key in the body returned in the HTTP response in the test. The captured value can be referenced later in the `Sequence` using the `$`-prefix. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) action. Captured values can be referenced in all parts of a test, even in its pre-test action. This means that a token returned in an HTTP response in a test can be referenced in a `Command` action in a later test to display a QR code, for example.
-
-A `Sequence` with just a single step behaves like a plain standalone test; the shared context and sequential order only start to matter once there's more than one.
+When testing a chain of HTTP calls that build on each other, multiple `Test`s can be run together in a `Sequence`. A `Sequence` is just a list of tests that run one after another as steps, in a shared context. This means that data can be transferred from one step to the next. The main mechanism to achieve this is the [captor](#advanced). A captor is a key listed in the `Capture` block of a test. If done the captor will capture the value of a field matching the captor key in the body returned in the HTTP response in the test. The captured value can be referenced later in the `Sequence` using the `$`-prefix. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) action. Captured values can be referenced in all parts of a test, even in its pre-test action. This means that a token returned in an HTTP response in a test can be referenced in a `Command` action in a later test to display a QR code, for example.
 
 ```go
-var myTest = e2e.Sequence{
-	Name: "finger print - order flow",
-	Steps: e2e.Steps{
-		{
-			Request: e2e.Request{
-				Method:  "POST",
-				URL:     "mydomain.com/fingerprint/create",
-				Headers: e2e.Headers{"Content-Type": "application/json"},
-				Body:    `{"user": "MyUser", "phone": "010111000",}`,
-			},
-			Expect: e2e.Expect{
-				Status: 201,
-				Body: e2e.Body{
-					"message": "OK"
-				},
+var FingerprintOrderFlow = e2e.Sequence{
+	{
+		Request: e2e.Request{
+			Method:  "POST",
+			URL:     "mydomain.com/fingerprint/create",
+			Headers: e2e.Headers{"Content-Type": "application/json"},
+			Body:    `{"user": "MyUser", "phone": "010111000"}`,
+		},
+		Expect: e2e.Expect{
+			Status: 201,
+			Body: e2e.Body{
+				"message": "OK",
 			},
 		},
-		{
-			Before: e2e.Input("finger print", "fingerprint"), // Prompts the user for "finger print" and stores the input on the key "fingerprint"
-			Request: e2e.Request{
-				Method:  "POST",
-				URL:     "mydomain.com/fingerprint/apply",
-				Headers: e2e.Headers{"Content-Type": "application/json"},
-				Body:    `{"print": "$fingerprint"}`, // References the captured "fingerprint"
-			},
-			Expect: e2e.Expect{
-				Status: 200,
-				Body: e2e.Body{
-					"token": "",
-				},
-			},
-			Capture: e2e.Captors{"token"}, // Captures whatever was the value of the "token" field in the response body
+	},
+	{
+		Before: e2e.Input("finger print", "fingerprint"), // Prompts the user for "finger print" and stores the input on the key "fingerprint"
+		Request: e2e.Request{
+			Method:  "POST",
+			URL:     "mydomain.com/fingerprint/apply",
+			Headers: e2e.Headers{"Content-Type": "application/json"},
+			Body:    `{"print": "$fingerprint"}`, // References the captured "fingerprint"
 		},
-		{
-			Request: e2e.Request{
-				Method:  "POST",
-				URL:     "mydomain.com/auth/token",
-				Headers: e2e.Headers{"Authorization": "Bearer $token"}, // References the stored "token"
+		Expect: e2e.Expect{
+			Status: 200,
+			Body: e2e.Body{
+				"token": "",
 			},
-			Expect: e2e.Expect{
-				Status: 200,
-				Body: e2e.Body{
-					"url": "",
-				},
-			},
-			Capture: e2e.Captors{"url"}, // Captures whatever was the value of the "url" field in the response body
 		},
-		{
-			Request: e2e.Request{
-				Method: "POST",
-				URL:    "$url", // References the stored "url"
+		Capture: e2e.Captors{"token"}, // Captures whatever was the value of the "token" field in the response body
+	},
+	{
+		Request: e2e.Request{
+			Method:  "POST",
+			URL:     "mydomain.com/auth/token",
+			Headers: e2e.Headers{"Authorization": "Bearer $token"}, // References the stored "token"
+		},
+		Expect: e2e.Expect{
+			Status: 200,
+			Body: e2e.Body{
+				"url": "",
 			},
-			Expect: e2e.Expect{
-				Status: 200,
-			},
+		},
+		Capture: e2e.Captors{"url"}, // Captures whatever was the value of the "url" field in the response body
+	},
+	{
+		Request: e2e.Request{
+			Method: "POST",
+			URL:    "$url", // References the stored "url"
+		},
+		Expect: e2e.Expect{
+			Status: 200,
 		},
 	},
 }

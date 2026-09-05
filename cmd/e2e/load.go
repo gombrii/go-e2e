@@ -140,11 +140,11 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 }
 
 // assignImportAliases gives each package a unique Go import identifier to use in the
-// generated runner. Two different import paths can share a package name — e.g. two "tests"
-// packages living at different paths — and importing both under that same bare name would
+// generated runner. Two different import paths can share a package name. E.g. two "tests"
+// packages living at different paths. Importing both under that same bare name would
 //
 // setupPkgPath and setupPkgName reserve the setup package's own name so that a different
-// package sharing it gets renumbered — and, when the setup package is itself one of these.
+// package sharing it gets renumbered, and, when the setup package is itself one of these.
 func assignImportAliases(setupPkgPath, setupPkgName string, packages []packageInfo) {
 	seen := map[string]int{}
 	if setupPkgName != "" {
@@ -166,11 +166,11 @@ func assignImportAliases(setupPkgPath, setupPkgName string, packages []packageIn
 
 // disambiguateNames guards against a name collision the generated runner can't recover
 // from: every exported var's own name becomes its key in the map passed to Runner.Run, so
-// two vars sharing a name — even across different packages — would otherwise produce a
+// two vars sharing a name, even across different packages, would otherwise produce a
 // duplicate map key and fail to compile. Rather than rejecting that, every var sharing a
 // colliding name gets its DisplayName prefixed with its own (already-unique) import alias,
 // e.g. "Ping" declared in both "smoketests" and "manualtests" becomes "smoketests.Ping" and
-// "manualtests.Ping" — or, if both happen to be named "tests" too, "tests.Ping" and
+// "manualtests.Ping", or, if both happen to be named "tests" too, "tests.Ping" and
 // "tests2.Ping". Names with no collision are left as-is. Must run after assignImportAliases.
 func disambiguateNames(packages []packageInfo) {
 	type loc struct{ pkgIdx, varIdx int }

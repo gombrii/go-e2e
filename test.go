@@ -8,14 +8,16 @@ import (
 )
 
 // Test defines a single HTTP call and the expectations against its response. Declare it
-// directly as a standalone test, or use it as a step within a Sequence.
+// directly as a standalone test, or use it as a step within a Sequence. Fields not set
+// are ignored, but at least setting Method and URL for Request is required to make a
+// proper request.
 type Test struct {
 	// Before is an optional pre-test action. Use the helper functions [Command], [Input],
 	// and [Delay] to create it.
 	Before Action
 	// Request defines the HTTP call this test makes.
 	Request Request
-	// Expect defines expectations on the HTTP response. Only the fields you set are validated —
+	// Expect defines expectations on the HTTP response. Only the fields you set are validated,
 	// unset fields accept any value.
 	Expect Expect
 	// Capture lists keys of response body fields whose values should be stored and made available
@@ -76,7 +78,7 @@ type (
 		//		"root.item@attr": "attrval",
 		//	}
 		//
-		// Arrays and repeated tags don't add an index to the path — every element is flattened
+		// Arrays and repeated tags don't add an index to the path, every element is flattened
 		// onto the same path as its parent field. A path can therefore resolve to multiple
 		// values, and the assertion passes if any one of them contains the expected value:
 		//
