@@ -23,12 +23,12 @@ func main() {
 		AfterRun: {{ .Setup.PkgName }}.{{ .Setup.AfterRun }},
 	{{- end }}
 		Verbose: {{ .Verbose }},
-	}.Run(
+	}.Run(map[string]e2e{{ .Noise }}.Runnable{
 {{- range .Packages }}
 	{{- $pkg := . }}
 	{{- range .ExportedVars }}
-		{{ $pkg.PkgName }}.{{ .VarName }},
+		"{{ .DisplayName }}": {{ $pkg.PkgName }}.{{ .VarName }},
 	{{- end }}
 {{- end }}
-	)
+	})
 }`

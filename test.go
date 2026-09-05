@@ -7,7 +7,9 @@ import (
 	"strings"
 )
 
-type test struct {
+// Test defines a single HTTP call and the expectations against its response. Declare it
+// directly as a standalone test, or use it as a step within a Sequence.
+type Test struct {
 	// Before is an optional pre-test action. Use the helper functions [Command], [Input],
 	// and [Delay] to create it.
 	Before Action
@@ -17,7 +19,8 @@ type test struct {
 	// unset fields accept any value.
 	Expect Expect
 	// Capture lists keys of response body fields whose values should be stored and made available
-	// to later steps via the $-prefix.
+	// to later steps via the $-prefix. Has no effect on a standalone Test, since there is no
+	// later step to receive it.
 	Capture Captors
 }
 
@@ -101,29 +104,43 @@ type (
 	Body map[string]any
 )
 
-func (t test) run(client *http.Client, buf *bytes.Buffer, data map[string]string, verbose bool) (result testResult) {
+// run makes Test satisfy Runnable, letting it be declared standalone alongside Sequence, or
+// used as a step within one. Everything it needs is passed in rather than created
+// internally: a standalone Test gets its client/buf/data straight from Runner.Run, while a
+// step gets them from the Sequence it belongs to.
+//
+// name is the key this Test was declared under when standalone, or the "Step N" label a
+// Sequence assigns it when it's one of its steps. Either way it's printed as this run's
+// banner.
+func (t Test) run(name string, verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) (res result) {
+	res.buf = buf
+	res.numRun = 1
+
+	fmt.Fprintln(buf, "\n", center(name, 31))
+	defer func() {
+		fmt.Fprintf(buf, "---------------------------------\nRESULT: %s\n", resultText(res.passed))
+	}()
+
 	if t.Before != nil {
 		description, err := t.Before(data)
 		fmt.Fprintf(buf, "Pre-test action: %v\n", description)
 		if err != nil {
 			fmt.Fprintf(buf, "\n%s: performing pre test action: %v\n", pink("ERROR"), err)
-			return testResult{
-				buf:    buf,
-				passed: false,
-			}
+			return
 		}
 	}
 
 	t.Request = inject(t.Request, data)
 
-	body, result := performTest(client, buf, t.Request, t.Expect, verbose)
-	if !result.passed {
-		return result
+	body, tr := performTest(client, buf, t.Request, t.Expect, verbose)
+	if !tr.passed {
+		return
 	}
 
 	capture(body, data, t.Capture)
 
-	return result
+	res.passed = true
+	return
 }
 
 func inject(req Request, data map[string]string) Request {

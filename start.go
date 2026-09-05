@@ -26,9 +26,17 @@ type result struct {
 	numRun int
 }
 
-// Run executes the given tests, prints the output, and prompts for confirmation
-// before showing full results. Called by the e2e tool.
-func (r Runner) Run(sequences ...Sequence) {
+// Runnable is satisfied by Sequence and Test, letting Runner.Run declare a container type
+// for either. Its method is unexported, so nothing outside this package can implement it.
+type Runnable interface {
+	run(name string, verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) result
+}
+
+// Run executes the given tests, prints the output, and prompts for confirmation before
+// showing full results. Called by the e2e tool, which passes each Sequence or Test keyed by
+// the name of the exported variable it was declared under (or, if that name collided with
+// another package's, by that name prefixed with the package name).
+func (r Runner) Run(tests map[string]Runnable) {
 	r.ensureHooks()
 	before := r.BeforeRun()
 	defer r.AfterRun(before)
@@ -46,13 +54,13 @@ func (r Runner) Run(sequences ...Sequence) {
 	numPassed := 0
 	results := []result{}
 
-	drawProgressBar(results, len(sequences))
-	for _, s := range sequences {
+	drawProgressBar(results, len(tests))
+	for name, t := range tests {
 		wg.Add(1)
-		go func(seq Sequence) {
+		go func(name string, t Runnable) {
 			defer wg.Done()
-			ch <- seq.run(client, r.Verbose)
-		}(s)
+			ch <- t.run(name, r.Verbose, client, &bytes.Buffer{}, make(map[string]string))
+		}(name, t)
 	}
 
 	go func() {
@@ -66,18 +74,18 @@ func (r Runner) Run(sequences ...Sequence) {
 		}
 		numRun += result.numRun
 		results = append(results, result)
-		drawProgressBar(results, len(sequences))
+		drawProgressBar(results, len(tests))
 	}
 
-	allPassed := numPassed == len(sequences)
-	numFailed := len(sequences) - numPassed
+	allPassed := numPassed == len(tests)
+	numFailed := len(tests) - numPassed
 
 	fmt.Printf(`
 ---------------------------------
 TOTAL RESULT: %s
 Num tests run: %5d (%d http calls)
 Failed tests: %6d
-`, resultText(allPassed), len(sequences), numRun, numFailed)
+`, resultText(allPassed), len(tests), numRun, numFailed)
 
 	input := confirm(`Do you want to see full output (vs only failed)? [y/N]: `)
 	full := strings.ToLower(strings.Trim(input, "\n")) == "y"

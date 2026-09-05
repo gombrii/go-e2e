@@ -26,8 +26,12 @@ type packageInfo struct {
 }
 
 type exportedVar struct {
-	VarName  string
-	TypeName string
+	VarName string
+	// DisplayName is what the test is keyed and printed under. It's the same as VarName,
+	// unless that name collided with another package's, in which case it's prefixed with
+	// the package name to disambiguate.
+	DisplayName string
+	TypeName    string
 }
 
 func load(wd, pattern string) (setup, []packageInfo, error) {
@@ -101,13 +105,14 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 							continue
 						}
 						typeName := named.Obj().Name()
-						if typeName != "Sequence" {
+						if typeName != "Sequence" && typeName != "Test" {
 							continue
 						}
 
 						exportedVars = append(exportedVars, exportedVar{
-							VarName:  name.Name,
-							TypeName: typeName,
+							VarName:     name.Name,
+							DisplayName: name.Name,
+							TypeName:    typeName,
 						})
 						containsTests = true
 					}
@@ -124,7 +129,35 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 		return nil, errors.New("no tests provided")
 	}
 
+	disambiguateNames(packages)
+
 	return packages, nil
+}
+
+// disambiguateNames guards against a name collision the generated runner can't recover
+// from: every exported var's own name becomes its key in the map passed to Runner.Run, so
+// two vars sharing a name — even across different packages — would otherwise produce a
+// duplicate map key and fail to compile. Rather than rejecting that, every var sharing a
+// colliding name gets its DisplayName prefixed with its own package name, e.g. "Ping"
+// declared in both "smoketests" and "manualtests" becomes "smoketests.Ping" and
+// "manualtests.Ping". Names with no collision are left as-is.
+func disambiguateNames(packages []packageInfo) {
+	type loc struct{ pkgIdx, varIdx int }
+	locs := make(map[string][]loc)
+	for pi, pkg := range packages {
+		for vi, v := range pkg.ExportedVars {
+			locs[v.VarName] = append(locs[v.VarName], loc{pi, vi})
+		}
+	}
+	for name, ls := range locs {
+		if len(ls) < 2 {
+			continue
+		}
+		for _, l := range ls {
+			pkg := &packages[l.pkgIdx]
+			pkg.ExportedVars[l.varIdx].DisplayName = pkg.PkgName + "." + name
+		}
+	}
 }
 
 func loadSetup(cfg *packages.Config) (setup, error) {
