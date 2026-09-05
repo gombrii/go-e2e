@@ -56,17 +56,17 @@ func Set(book AddressBook) {
 //	e2e ./mytests dev
 //
 // Returns the address registered under "auth" for the environment "dev".
-func Lookup(svc string) string {
+func Lookup(name string) string {
 	if os.Args[1] == "" {
-		fmt.Printf("No env arg provided. Needed to run tests containing AddressBook lookups.\n")
+		fmt.Printf("No env argument provided — pass one to use AddressBook lookups, e.g. e2e ./mytests dev\n")
 		os.Exit(badArgument)
 	}
 
 	env := os.Args[1]
 
-	addr, ok := addrs[env][svc]
+	addr, ok := addrs[env][name]
 	if !ok {
-		fmt.Printf("Attempt access address for combination of env %q and svc %q that does not exist\n", env, svc)
+		fmt.Printf("No address found for env %q, name %q\n", env, name)
 		os.Exit(badArgument)
 	}
 
@@ -83,9 +83,9 @@ func Lookup(svc string) string {
 //
 // Returns the address registered under "auth" for the environment "dev", regardless of which
 // environment the e2e tool was invoked with.
-func EnvLookup(env, svc string) string {
-	if addr, ok := addrs[env][svc]; !ok {
-		panic(fmt.Sprintf("Attempt access address for combination of env %q and svc %q that does not exist", env, svc))
+func EnvLookup(env, name string) string {
+	if addr, ok := addrs[env][name]; !ok {
+		panic(fmt.Sprintf("No address found for env %q, name %q", env, name))
 	} else {
 		return addr
 	}
