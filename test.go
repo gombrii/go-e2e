@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -27,8 +26,6 @@ type (
 	Before []func(data map[string]string) (string, error)
 	// Request defines the HTTP call to make for this test.
 	Request struct {
-		// CTX is the context passed to the HTTP client. Defaults to context.Background() if not set.
-		CTX context.Context
 		// The HTTP method to use, e.g. "GET" or "POST".
 		Method string
 		// The URL to send the request to. Can be a hard-coded string or a value looked up

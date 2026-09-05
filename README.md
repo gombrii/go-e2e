@@ -156,7 +156,6 @@ There are many more parameters to a test.
 	Request: e2e.Request{
 		Method:  "POST",
 		URL:     "mydomain.com",
-		CTX:     ctx,
 		Headers: e2e.Headers{
 			{Key: "Accept", Val: "application/json"},
 		},

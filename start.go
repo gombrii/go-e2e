@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Runner is the engine that executes test suites and sequences. It is used internally
@@ -39,6 +40,7 @@ func (r Runner) Run(sets ...set) {
 	ch := make(chan result)
 	wg := sync.WaitGroup{}
 	client := &http.Client{
+		Timeout: 10 * time.Second,
 		// Don't follow redirects
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse

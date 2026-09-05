@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -58,11 +57,7 @@ func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected E
 }
 
 func makeRequest(client *http.Client, reqSetup Request) (*http.Response, error) {
-	if reqSetup.CTX == nil {
-		reqSetup.CTX = context.Background()
-	}
-
-	req, err := http.NewRequestWithContext(reqSetup.CTX, reqSetup.Method, reqSetup.URL, io.NopCloser(strings.NewReader(reqSetup.Body)))
+	req, err := http.NewRequest(reqSetup.Method, reqSetup.URL, io.NopCloser(strings.NewReader(reqSetup.Body)))
 	if err != nil {
 		return nil, fmt.Errorf("setting up: %v", err)
 	}
