@@ -7,6 +7,8 @@ Go-e2e is created to be a quick and concurrent facilitator of HTTP API tests.
 
 There are two parts to this project: the `e2e` library and the `e2e` tool. The library is used to define test cases that can then be run using the tool.
 
+![Test run](demo/image.png)
+
 ## Getting started
 Tests are declared in Go modules. A minimal setup is a catalogue containing a `go.mod` file and one `.go` file. That setup will be used for this setup guide.
 
@@ -79,10 +81,6 @@ mytests/
 
 ## e2e tool
 You can use the `e2e` CLI tool to run tests you have defined in your project.
-
-A test run can look something like this:
-
-![Test run](demo/image.png)
 
 ### Usage
 
