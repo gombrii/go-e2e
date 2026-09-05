@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+type Action func(data map[string]string) (string, error)
+
 // Delay pauses execution for the given duration before the test runs. The duration is
 // parsed using Go's standard format, e.g. "500ms" or "2s". Progress is shown with a
 // spinner while waiting.
@@ -16,7 +18,7 @@ import (
 // Useful when a previous step triggers something asynchronous that needs time to settle
 // before the next assertion — for example waiting for a cache to populate, for an
 // eventual consistency window to close, or for a background job to complete.
-func Delay(delay string) func(data map[string]string) (string, error) {
+func Delay(delay string) Action {
 	return func(data map[string]string) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
@@ -50,7 +52,7 @@ func Delay(delay string) func(data map[string]string) (string, error) {
 // Input prompts the user for a string value before the test runs. prompt is the message
 // shown to the user. The entered value is stored under mapTo and can be referenced
 // elsewhere in the test using the $-prefix, e.g. "$mapTo".
-func Input(prompt string, mapTo string) func(data map[string]string) (string, error) {
+func Input(prompt string, mapTo string) Action {
 	return func(data map[string]string) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
@@ -83,7 +85,7 @@ func Input(prompt string, mapTo string) func(data map[string]string) (string, er
 //
 // Useful for fetching local dynamic data, displaying a QR code, or any other side
 // effect that should happen and be confirmed before the test proceeds.
-func Command(command string, args ...string) func(data map[string]string) (string, error) {
+func Command(command string, args ...string) Action {
 	return func(data map[string]string) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()

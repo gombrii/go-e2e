@@ -170,7 +170,7 @@ There are many more parameters to a test.
 
 ```go
 {
-	Before:  e2e.Before{e2e.Input("password", "$pwd")}, // Advanced property
+	Before:  e2e.Input("password", "$pwd"), // Advanced property
 	Request: e2e.Request{
 		Method:  "POST",
 		URL:     "mydomain.com",
@@ -210,9 +210,9 @@ Expect: e2e.Expect{
 In the above example the test would pass if the response body as a field "title" with a value of which "delectus" is a part. If title contained "delectus kolumplectus" the test would still pass. This is useful to be able to assert IDs that might contain some constant part and some dynamic part. However the key must match exactly for the test to pass. This makes it possible to simply test for the existance of a field without caring about the value by including `"title": ""`. The same goes for expected headers.
 
 #### Advanced
-`Before` and `Capture` are two special properties which enable actions to be performed before the execution of a test as well as response data to be captured.
+`Before` and `Capture` are two special properties which enable a pre-test actions anc capturing of response data.
 
-`Before` takes a list of before-actions. There are three types created using the three helper functions `Input`, `Command`, and `Delay`.
+`Before` takes a single action. Use one of the three helper functions `Input`, `Command`, or `Delay` to create it.
 
 - `Input(prompt string, mapTo string)` will prompt the user to input a string value before the test is run. `prompt` is the message shown to the user. `mapTo` is a key that can be referenced in the test using the `$`-prefix. In the example above `$pwd` is used to insert a password into the request body.
 - `Command(command string, args ...string)` will run a terminal command before the test is run. Its output will be displayed to the user after which the user will be prompted to press enter to continue. Usecases include fetching some local dynamic data, displaying a QR code, or anything else might be performed.
@@ -221,7 +221,7 @@ In the above example the test would pass if the response body as a field "title"
 The `Capture` property allows some data to be captured from the HTTP response in a test. This is discussed further in the [`Sequences`](#sequences) section.
 
 ### Sequences
-Tests must be put together in a `Sequence`. A `Sequence` has a name and a list of steps that run one after another, in a shared context. This means that data can be transferred from one step to the next and makes it possible to perform and test a chain of HTTP calls which build on eachother. The main mechanism to achieve this is the [captor](#advanced). A captor is a key listed in the `Capture` block of a test. If done the captor will capture the value of a field matching the captor key in the body returned in the HTTP response in the test. The captured value can be referenced later in the `Sequence` using the `$`-prefix. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) before-action. Captured values can be referenced in all parts of a test, even in before-actions. This means that a token returned in an HTTP response in a test can be referenced in a `Command` before-action in a later test to display a QR code, for example.
+Tests must be put together in a `Sequence`. A `Sequence` has a name and a list of steps that run one after another, in a shared context. This means that data can be transferred from one step to the next and makes it possible to perform and test a chain of HTTP calls which build on eachother. The main mechanism to achieve this is the [captor](#advanced). A captor is a key listed in the `Capture` block of a test. If done the captor will capture the value of a field matching the captor key in the body returned in the HTTP response in the test. The captured value can be referenced later in the `Sequence` using the `$`-prefix. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) action. Captured values can be referenced in all parts of a test, even in its pre-test action. This means that a token returned in an HTTP response in a test can be referenced in a `Command` action in a later test to display a QR code, for example.
 
 A `Sequence` with just a single step behaves like a plain standalone test; the shared context and sequential order only start to matter once there's more than one.
 
@@ -244,9 +244,7 @@ e2e.Sequence{
 			},
 		},
 		{
-			Before: e2e.Before{
-				e2e.Input("finger print", "fingerprint"), // Propmpts the user for "finger print" and stores the input on the key "fingerprint"
-			},
+			Before: e2e.Input("finger print", "fingerprint"), // Prompts the user for "finger print" and stores the input on the key "fingerprint"
 			Request: e2e.Request{
 				Method:  "POST",
 				URL:     "mydomain.com/fingerprint/apply",
@@ -288,7 +286,7 @@ e2e.Sequence{
 }
 ```
 
-> Last tip: Since any [before-action](#advanced) will require user input when running the test it is a good idea to think about how tests are organized in packages and files. It can be useful to have a separate catalogue of tests that can be run without needing user input, keeping tests that do require it separate to cover more intricate features of an API.
+> Last tip: Since an [action](#advanced) can require user input when running the test it is a good idea to think about how tests are organized in packages and files. It can be useful to have a separate catalogue of tests that can be run without needing user input, keeping tests that do require it separate to cover more intricate features of an API.
 
 ## Concurrency and performance
 Since `go-e2e` is a concurrent tool tests don't scale linearly. Tests run in parallell. From my own manual testing it seems to scale pretty constantly `O(1)` and run whatever amount of tests in about a second or two. `go-e2e` has been tested with at most about 370 tests.

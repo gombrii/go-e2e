@@ -8,9 +8,9 @@ import (
 )
 
 type test struct {
-	// Before lists the before-actions to run before this test, in order. Use the helper functions
-	// [Command], [Input], and [Delay] to create them.
-	Before Before
+	// Before is an optional pre-test action. Use the helper functions [Command], [Input],
+	// and [Delay] to create it.
+	Before Action
 	// Request defines the HTTP call this test makes.
 	Request Request
 	// Expect defines expectations on the HTTP response. Only the fields you set are validated —
@@ -22,8 +22,6 @@ type test struct {
 }
 
 type (
-	// Before is a slice of before-action functions. Use [Command], [Input], or [Delay] to create them.
-	Before []func(data map[string]string) (string, error)
 	// Request defines the HTTP call to make for this test.
 	Request struct {
 		// The HTTP method to use, e.g. "GET" or "POST".
@@ -91,9 +89,9 @@ type (
 )
 
 func (t test) run(client *http.Client, buf *bytes.Buffer, data map[string]string, verbose bool) (result testResult) {
-	for _, action := range t.Before {
-		description, err := action(data)
-		fmt.Fprintf(buf, "Before test: %v\n", description)
+	if t.Before != nil {
+		description, err := t.Before(data)
+		fmt.Fprintf(buf, "Pre-test action: %v\n", description)
 		if err != nil {
 			fmt.Fprintf(buf, "\n%s: performing pre test action: %v\n", pink("ERROR"), err)
 			return testResult{
