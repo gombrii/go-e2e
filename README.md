@@ -126,7 +126,7 @@ There are many more parameters to a test. `Capture` only matters as a step in a 
 
 ```go
 {
-	Before:  e2e.Input("password", "$pwd"), // Advanced property
+	Before:  e2e.Input("password", "pwd"), // Advanced property
 	Request: e2e.Request{
 		Method:  "POST",
 		URL:     "mydomain.com",
@@ -148,7 +148,7 @@ There are many more parameters to a test. `Capture` only matters as a step in a 
 			"Content-Type": "application/json",
 		},
 	},
-	Capture: e2e.Captors{"completed"}, // Advanced property, see Sequences below
+	Capture: e2e.Captors{{Name: "completed"}}, // Advanced property, see Sequences below
 }
 ```
 
@@ -215,18 +215,18 @@ Expect: e2e.Expect{
 ```
 
 #### Advanced
-`Before` and `Capture` are two special properties which enable a pre-test actions anc capturing of response data.
+`Before` and `Capture` are two special properties which enable a pre-test actions and capturing of response data.
 
 `Before` takes a single Action. Use one of the three helper functions `Input`, `Command`, or `Delay` to create it.
 
-- `Input(prompt, mapTo string)` will prompt the user to input a string value before the test is run. `prompt` is the message shown to the user. `mapTo` is a key that can be referenced in the test using the `$`-prefix. In the example above `$pwd` is used to insert a password into the request body.
+- `Input(prompt, as string)` will prompt the user to input a string value before the test is run. `prompt` is the message shown to the user. `as` is a key that can be referenced in the test using the `$`-prefix. In the example above `$pwd` is used to insert a password into the request body.
 - `Command(command string, args ...string)` will run a terminal command before the test is run. Its output will be displayed to the user after which the user will be prompted to press enter to continue. Usecases include fetching some local dynamic data, displaying a QR code, or anything else might be performed.
 - `Delay(delay string)` will pause execution for a given duration before the test is run. The duration is parsed using Go's standard duration format, e.g. `"500ms"` or `"2s"`. Useful when a previous step triggers something asynchronous that needs time to settle before the next assertion, for example waiting for a short-lived cache to expire, for an eventual consistency window to close, or for a background job to complete.
 
 The `Capture` property allows some data to be captured from the HTTP response in a test. This is discussed further in the [`Sequences`](#sequences) section.
 
 ### Sequences
-When testing a chain of HTTP calls that build on each other, multiple `Test`s can be run together in a `Sequence`. A `Sequence` is just a list of tests that run one after another as steps, in a shared context. This means that data can be transferred from one step to the next. The main mechanism to achieve this is the [captor](#advanced). A captor is a key listed in the `Capture` block of a test. If done the captor will capture the value of a field matching the captor key in the body returned in the HTTP response in the test. The captured value can be referenced later in the `Sequence` using the `$`-prefix. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) action. Captured values can be referenced in all parts of a test, even in its pre-test action. This means that a token returned in an HTTP response in a test can be referenced in a `Command` action in a later test to display a QR code, for example.
+When testing a chain of HTTP calls that build on each other, multiple `Test`s can be run together in a `Sequence`. A `Sequence` is just a list of tests that run one after another as steps, in a shared context. This means that data can be transferred from one step to the next. The main mechanism to achieve this is the [captor](#advanced). A captor is an entry in the `Capture` block of a test, given as `Captor{Name, As}`. `Name` is the field to capture the value of, using the same dot-separated path syntax as `Expect.Body`. `As` is optional and, if set, is the key the captured value is stored under instead of `Name` — handy for giving a long dotted path a short name to reference later. The captured value can be referenced later in the `Sequence` using the `$`-prefix, under whichever name it was stored as. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) action. Captured values can be referenced in all parts of a test, even in its pre-test action. This means that a token returned in an HTTP response in a test can be referenced in a `Command` action in a later test to display a QR code, for example.
 
 ```go
 var FingerprintOrderFlow = e2e.Sequence{
@@ -258,13 +258,13 @@ var FingerprintOrderFlow = e2e.Sequence{
 				"token": "",
 			},
 		},
-		Capture: e2e.Captors{"token"}, // Captures whatever was the value of the "token" field in the response body
+		Capture: e2e.Captors{{Name: "token", As: "authToken"}}, // Captures the "token" field from the response body, storing it under "authToken"
 	},
 	{
 		Request: e2e.Request{
 			Method:  "POST",
 			URL:     "mydomain.com/auth/token",
-			Headers: e2e.Headers{"Authorization": "Bearer $token"}, // References the stored "token"
+			Headers: e2e.Headers{"Authorization": "Bearer $authToken"}, // References the stored "authToken"
 		},
 		Expect: e2e.Expect{
 			Status: 200,
@@ -272,7 +272,7 @@ var FingerprintOrderFlow = e2e.Sequence{
 				"url": "",
 			},
 		},
-		Capture: e2e.Captors{"url"}, // Captures whatever was the value of the "url" field in the response body
+		Capture: e2e.Captors{{Name: "url"}}, // Captures whatever was the value of the "url" field in the response body
 	},
 	{
 		Request: e2e.Request{

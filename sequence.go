@@ -4,10 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
-	"regexp"
 )
-
-var variable *regexp.Regexp = regexp.MustCompile(`\$\w+`)
 
 // Sequence is a list of Test steps that run one after another, sharing a single context so
 // that data captured in one step (see Test.Capture) can be referenced by a later one using
@@ -20,8 +17,6 @@ type Sequence []Test
 // data all come from Runner.Run too; Sequence just shares them with each of its own steps
 // in turn, giving each one its "Step N" label as its name.
 func (s Sequence) run(name string, verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) result {
-	//fmt.Fprintln(buf, yellow(center(strings.ToUpper("Sequence "+name), 31)))
-
 	allPassed := true
 	for i, step := range s {
 		fmt.Fprintf(buf, "Step %d\n", i+1)

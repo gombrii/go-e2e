@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 )
+
+// Matches strings such as "$user" and "$var.field.subfield".
+var refMatcher *regexp.Regexp = regexp.MustCompile(`\$\w+(?:\.\w+)*`)
 
 // Test defines a single HTTP call and the expectations against its response. Declare it
 // directly as a standalone test, or use it as a step within a Sequence. Fields not set
@@ -20,9 +24,9 @@ type Test struct {
 	// Expect defines expectations on the HTTP response. Only the fields you set are validated,
 	// unset fields accept any value.
 	Expect Expect
-	// Capture lists keys of response body fields whose values should be stored and made available
-	// to later steps via the $-prefix. Has no effect on a standalone Test, since there is no
-	// later step to receive it.
+	// Capture lists Captors naming response body fields whose values should be stored and made
+	// available to later steps via the $-prefix. Has no effect on a standalone Test, since there
+	// is no later step to receive it.
 	Capture Captors
 }
 
@@ -96,7 +100,7 @@ type (
 		// exists.
 		Body Body
 	}
-	Captors []string
+	Captors []Captor
 )
 
 type (
@@ -104,6 +108,13 @@ type (
 	Headers map[string]string
 	// Body is a map of dot-separated field paths to expected values. See [Expect.Body].
 	Body map[string]any
+	// A Captor captures the value of a field or header with the given Name. To later reference the
+	// captured value use $Name. Set As to a value of your choice if you would like to reference it
+	// under a different name instead.
+	Captor struct {
+		Name string
+		As   string
+	}
 )
 
 // run makes Test satisfy Runnable, letting it be declared standalone alongside Sequence, or
@@ -115,9 +126,6 @@ type (
 // Sequence assigns it when it's one of its steps. Either way it's printed as this run's
 // banner.
 func (t Test) run(name string, verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) result {
-	//fmt.Fprintln(buf, center(name, 16))
-	//fmt.Fprintln(buf, name)
-
 	if t.Before != nil {
 		description, err := t.Before(data)
 		fmt.Fprintf(buf, "Pre-test action: %v\n", description)
@@ -139,31 +147,46 @@ func inject(req Request, data map[string]string) Request {
 		return req
 	}
 
-	req.URL = variable.ReplaceAllStringFunc(req.URL, func(s string) string {
+	req.URL = refMatcher.ReplaceAllStringFunc(req.URL, func(s string) string {
 		s = strings.TrimPrefix(s, "$")
+
+		//TODO: Warn if matching key in data
+
 		return data[s]
 	})
 	for k, v := range req.Headers {
-		req.Headers[k] = variable.ReplaceAllStringFunc(v, func(s string) string {
+		req.Headers[k] = refMatcher.ReplaceAllStringFunc(v, func(s string) string {
 			s = strings.TrimPrefix(s, "$")
 			return data[s]
 		})
 	}
-	req.Body = variable.ReplaceAllStringFunc(req.Body, func(s string) string {
+	req.Body = refMatcher.ReplaceAllStringFunc(req.Body, func(s string) string {
 		s = strings.TrimPrefix(s, "$")
 		return data[s]
 	})
+
+	// TODO: Also inject in expect, and should the t.Before injection be managed together with these?
 
 	return req
 }
 
 func capture(body map[string][]string, data map[string]string, captors Captors, buf *bytes.Buffer) {
+	//TODO: Warn if captor contains anything but the allowed set of alphabetical characters and dots
+
 	for _, c := range captors {
-		if val, ok := body[c]; ok {
+
+		//TODO: Name is required, Key is optional. Error out here if any of these are not met.
+
+		if val, ok := body[c.Name]; ok {
 			if len(val) > 1 {
-				fmt.Fprintf(buf, "%s: capturing field %q: %v\n", yellow("WARNING"), c, "response field contains multiple values. Captures first one.")
+				fmt.Fprintf(buf, "%s: capturing field %q: response field contains multiple values. Captures first one.\n", yellow("WARNING"), c.Name)
 			}
-			data[c] = fmt.Sprint(val[0])
+
+			key := c.Name
+			if c.As != "" {
+				key = c.As
+			}
+			data[key] = fmt.Sprint(val[0])
 		}
 	}
 }

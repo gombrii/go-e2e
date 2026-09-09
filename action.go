@@ -53,9 +53,9 @@ func Delay(delay string) Action {
 }
 
 // Input prompts the user for a string value before the test runs. prompt is the message
-// shown to the user. The entered value is stored under mapTo and can be referenced
-// elsewhere in the test using the $-prefix, e.g. "$mapTo".
-func Input(prompt, mapTo string) Action {
+// shown to the user. The entered value is stored under as and can be referenced
+// elsewhere in the test using the $-prefix, e.g. "$as".
+func Input(prompt, as string) Action {
 	return func(data map[string]string) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
@@ -74,8 +74,8 @@ func Input(prompt, mapTo string) Action {
 		clearLine() // Clear line where prompt was drawn
 		moveUp(1)   // To line where progress bar is drawn
 
-		if mapTo != "" {
-			data[mapTo] = strings.TrimSpace(input)
+		if as != "" {
+			data[as] = strings.TrimSpace(input)
 		}
 
 		return fmt.Sprintf("manual input: %q", prompt), nil
@@ -98,7 +98,7 @@ func Command(command string, args ...string) Action {
 		clearLine() // Clear line where prompt will be drawn
 
 		for i, s := range args {
-			args[i] = variable.ReplaceAllStringFunc(s, func(str string) string {
+			args[i] = refMatcher.ReplaceAllStringFunc(s, func(str string) string {
 				str = strings.TrimPrefix(str, "$")
 				return data[str]
 			})
