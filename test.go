@@ -127,7 +127,7 @@ type (
 // banner.
 func (t Test) run(name string, verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) result {
 	if t.Before != nil {
-		description, err := t.Before(data)
+		description, err := t.Before(data, buf)
 		fmt.Fprintf(buf, "Pre-test action: %v\n", description)
 		if err != nil {
 			fmt.Fprintf(buf, "\n%s: performing pre test action: %v\n", pink("ERROR"), err)
