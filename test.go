@@ -24,9 +24,9 @@ type Test struct {
 	// Expect defines expectations on the HTTP response. Only the fields you set are validated,
 	// unset fields accept any value.
 	Expect Expect
-	// Capture lists Captors naming response body fields whose values should be stored and made
-	// available to later steps via the $-prefix. Has no effect on a standalone Test, since there
-	// is no later step to receive it.
+	// Capture lists Captors naming response body fields or headers whose values should be stored
+	// and made available to later steps via the $-prefix. Has no effect on a standalone Test,
+	// since there is no later step to receive it.
 	Capture Captors
 }
 
@@ -136,8 +136,8 @@ func (t Test) run(name string, verbose bool, client *http.Client, buf *bytes.Buf
 	}
 
 	t.Request = inject(t.Request, data)
-	body, passed := performTest(client, buf, t.Request, t.Expect, verbose)
-	capture(body, data, t.Capture, buf)
+	body, headers, passed := performTest(client, buf, t.Request, t.Expect, verbose)
+	capture(body, headers, data, t.Capture, buf)
 
 	return result{buf: buf, passed: passed}
 }
@@ -170,18 +170,25 @@ func inject(req Request, data map[string]string) Request {
 	return req
 }
 
-func capture(body map[string][]string, data map[string]string, captors Captors, buf *bytes.Buffer) {
+func capture(body map[string][]string, headers http.Header, data map[string]string, captors Captors, buf *bytes.Buffer) {
 	//TODO: Warn if captor contains anything but the allowed set of alphabetical characters and dots
 
 	for _, c := range captors {
 
 		//TODO: Name is required, Key is optional. Error out here if any of these are not met.
 
-		if val, ok := body[c.Name]; ok {
+		// Only search headers if no match found in body.
+		val, foundMatch := body[c.Name]
+		if !foundMatch {
+			val, foundMatch = headers[http.CanonicalHeaderKey(c.Name)]
+		}
+
+		if foundMatch {
 			if len(val) > 1 {
-				fmt.Fprintf(buf, "%s: capturing field %q: response field contains multiple values. Captures first one.\n", yellow("WARNING"), c.Name)
+				fmt.Fprintf(buf, "%s: capturing %q: matched multiple values. Captures first one.\n", yellow("WARNING"), c.Name)
 			}
 
+			// c.As is used as key if set, otherwise c.Name is the key.
 			key := c.Name
 			if c.As != "" {
 				key = c.As

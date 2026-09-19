@@ -10,20 +10,20 @@ import (
 	"strings"
 )
 
-func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected Expect, verbose bool) (parsedBody map[string][]string, res bool) {
+func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected Expect, verbose bool) (parsedBody map[string][]string, headers http.Header, res bool) {
 	printReq(buf, req)
 
 	resp, err := makeRequest(client, req)
 	if err != nil {
 		fmt.Fprintf(buf, "%s: making request: %v\n", pink("ERROR"), err)
-		return map[string][]string{}, false
+		return map[string][]string{}, http.Header{}, false
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Fprintf(buf, "%s: reading response body: %v\n", pink("ERROR"), err)
-		return map[string][]string{}, false
+		return map[string][]string{}, http.Header{}, false
 	}
 
 	printResp(buf, resp, body, expected, verbose)
@@ -35,19 +35,19 @@ func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected E
 
 	if err := assertStatus(expected.Status, resp.StatusCode); err != nil {
 		fmt.Fprintf(buf, "%s: status: %v\n", pink("FAIL"), err)
-		return map[string][]string{}, false
+		return map[string][]string{}, http.Header{}, false
 	}
 	if err := assertHeaders(expected.Headers, resp.Header); err != nil {
 		fmt.Fprintf(buf, "%s: header: %v\n", pink("FAIL"), err)
-		return map[string][]string{}, false
+		return map[string][]string{}, http.Header{}, false
 	}
 	if err := assertBody(expected.Body, parsedBody); err != nil {
 		fmt.Fprintf(buf, "%s: body: %v\n", pink("FAIL"), err)
-		return map[string][]string{}, false
+		return map[string][]string{}, http.Header{}, false
 	}
 
 	fmt.Fprintln(buf, green("SUCCESS"))
-	return parsedBody, true
+	return parsedBody, resp.Header, true
 }
 
 func makeRequest(client *http.Client, reqSetup Request) (*http.Response, error) {
