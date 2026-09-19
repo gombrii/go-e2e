@@ -223,10 +223,12 @@ Expect: e2e.Expect{
 - `Command(command string, args ...string)` will run a terminal command before the test is run. Its output will be displayed to the user after which the user will be prompted to press enter to continue. Usecases include fetching some local dynamic data, displaying a QR code, or anything else might be performed.
 - `Delay(delay string)` will pause execution for a given duration before the test is run. The duration is parsed using Go's standard duration format, e.g. `"500ms"` or `"2s"`. Useful when a previous step triggers something asynchronous that needs time to settle before the next assertion, for example waiting for a short-lived cache to expire, for an eventual consistency window to close, or for a background job to complete.
 
-The `Capture` property allows some data to be captured from the HTTP response in a test. This is discussed further in the [`Sequences`](#sequences) section.
+The `Capture` property allows some data to be captured from the HTTP response body or headers in a test. This is discussed further in the [`Sequences`](#sequences) section.
 
 ### Sequences
-When testing a chain of HTTP calls that build on each other, multiple `Test`s can be run together in a `Sequence`. A `Sequence` is just a list of tests that run one after another as steps, in a shared context. This means that data can be transferred from one step to the next. The main mechanism to achieve this is the [captor](#advanced). A captor is an entry in the `Capture` block of a test, given as `Captor{Name, As}`. `Name` is the field to capture the value of, using the same dot-separated path syntax as `Expect.Body`. `As` is optional and, if set, is the key the captured value is stored under instead of `Name` — handy for giving a long dotted path a short name to reference later. The captured value can be referenced later in the `Sequence` using the `$`-prefix, under whichever name it was stored as. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) action. Captured values can be referenced in all parts of a test, even in its pre-test action. This means that a token returned in an HTTP response in a test can be referenced in a `Command` action in a later test to display a QR code, for example.
+When testing a chain of HTTP calls that build on each other, multiple `Test`s can be run together in a `Sequence`. A `Sequence` is just a list of tests that run one after another as steps, in a shared context. This means that data can be transferred from one step to the next. The main mechanism to achieve this is the [captor](#advanced). A captor is an entry in the `Capture` block of a test, given as `Captor{Name, As, Regex}`. `Name` is the response body field or header to capture the value of. Body fields are checked first, using the same dot-separated path syntax as `Expect.Body`, and a header of that name is only checked if no body field matched. `As` is optional and, if set, is the key the captured value is stored under instead of `Name`, handy for giving a long dotted path a short name to reference later or to resolve reference naming conflicts. `Regex` is also optional and lets you cherry-pick part of the captured value instead of the whole thing; see [Extracting part of a captured value](#extracting-part-of-a-captured-value) below.
+
+The captured value can be referenced later in the `Sequence` using the `$`-prefix, under whichever name it was stored as. This is the same mechanism used to capture and reference the input data from the [`Input`](#advanced) action, and it works everywhere a `$`-reference can appear, i.e. a test's `Request`, its `Expect`, and its pre-test action. This means that a token returned in an HTTP response in a test can, for example, be asserted against directly in a later test's `Expect`, or referenced in a `Command` action to display a QR code. If a `$`-reference can't be resolved because nothing was captured under that name, it's left as-is rather than silently becoming an empty string.
 
 ```go
 var FingerprintOrderFlow = e2e.Sequence{
@@ -285,6 +287,17 @@ var FingerprintOrderFlow = e2e.Sequence{
 	},
 }
 ```
+
+#### Extracting part of a captured value
+Sometimes the value you want isn't the whole field or header, just part of it. A cookie header like `Set-Cookie: __Host-session=abc-123 secure-http strict` is a common example. Set `Regex` on a `Captor` to cherry-pick part of the matched value instead of capturing it whole. If the pattern has a capturing group, that group is captured; if it has none, the whole match is captured instead. Use a non-capturing group, `(?:...)`, for any part of the pattern you need for context but don't want captured. There's never a need to pick a group by number, the first (and, in practice, only) capturing group you write is always the one used.
+
+```go
+Capture: e2e.Captors{
+	{Name: "Set-Cookie", As: "sessionID", Regex: `__Host-session=(\S+)`},
+},
+```
+
+Given the example header above, this captures `abc-123` under the key `sessionID`, referenced later as `$sessionID`. If `Regex` doesn't match anything within the captured value, or isn't valid regex syntax, nothing is captured.
 
 ### AddressBook (optional)
 The `AddressBook` is a feature provided by the `addr` package that enables runtime address lookup using a predefined addressbook in combination with the [`env`](#usage) parameter if passed to the `e2e` tool. This is to be able to make tests environment agnostic. Instead of a hardcoded URL, a test will be targeted toward a named address defined in the `AddressBook`. The `env` passed will then decide which variant of that address will be used.
