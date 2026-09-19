@@ -138,7 +138,9 @@ func (t Test) run(name string, verbose bool, client *http.Client, buf *bytes.Buf
 	t.Request = injectRequest(t.Request, data, buf)
 	t.Expect = injectExpect(t.Expect, data, buf)
 	body, headers, passed := performTest(client, buf, t.Request, t.Expect, verbose)
-	capture(body, headers, data, t.Capture, buf)
+	if passed {
+		capture(body, headers, data, t.Capture, buf)
+	}
 
 	return result{buf: buf, passed: passed}
 }
@@ -243,6 +245,8 @@ func capture(body map[string][]string, headers http.Header, data map[string]stri
 				key = c.As
 			}
 			data[key] = fmt.Sprint(val[0])
+		} else {
+			fmt.Fprintf(buf, "%s: capturing %q: matched nothing.\n", yellow("WARNING"), c.Name)
 		}
 	}
 }
