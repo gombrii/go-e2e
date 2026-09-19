@@ -135,43 +135,91 @@ func (t Test) run(name string, verbose bool, client *http.Client, buf *bytes.Buf
 		}
 	}
 
-	t.Request = inject(t.Request, data)
+	t.Request = injectRequest(t.Request, data, buf)
+	t.Expect = injectExpect(t.Expect, data, buf)
 	body, headers, passed := performTest(client, buf, t.Request, t.Expect, verbose)
 	capture(body, headers, data, t.Capture, buf)
 
 	return result{buf: buf, passed: passed}
 }
 
-func inject(req Request, data map[string]string) Request {
+func injectRequest(req Request, data map[string]string, buf *bytes.Buffer) Request {
 	if len(data) == 0 {
 		return req
 	}
 
-	req.URL = refMatcher.ReplaceAllStringFunc(req.URL, func(s string) string {
-		s = strings.TrimPrefix(s, "$")
-
-		//TODO: Warn if matching key in data
-
-		return data[s]
+	req.URL = refMatcher.ReplaceAllStringFunc(req.URL, func(m string) string {
+		key := strings.TrimPrefix(m, "$")
+		val, ok := data[key]
+		if !ok {
+			fmt.Fprintf(buf, "%s: %q in URL has no captured value, leaving reference as is\n", yellow("WARNING"), m)
+			return m
+		}
+		return val
 	})
 	for k, v := range req.Headers {
-		req.Headers[k] = refMatcher.ReplaceAllStringFunc(v, func(s string) string {
-			s = strings.TrimPrefix(s, "$")
-			return data[s]
+		req.Headers[k] = refMatcher.ReplaceAllStringFunc(v, func(m string) string {
+			key := strings.TrimPrefix(m, "$")
+			val, ok := data[key]
+			if !ok {
+				fmt.Fprintf(buf, "%s: %q in header %q has no captured value, leaving reference as is\n", yellow("WARNING"), m, k)
+				return m
+			}
+			return val
 		})
 	}
-	req.Body = refMatcher.ReplaceAllStringFunc(req.Body, func(s string) string {
-		s = strings.TrimPrefix(s, "$")
-		return data[s]
+	req.Body = refMatcher.ReplaceAllStringFunc(req.Body, func(m string) string {
+		key := strings.TrimPrefix(m, "$")
+		val, ok := data[key]
+		if !ok {
+			fmt.Fprintf(buf, "%s: %q in body has no captured value, leaving reference as is\n", yellow("WARNING"), m)
+			return m
+		}
+		return val
 	})
 
-	// TODO: Also inject in expect, and should the t.Before injection be managed together with these?
+	// TODO: should the t.Before injection be managed together with this and injectExpect?
 
 	return req
 }
 
+func injectExpect(exp Expect, data map[string]string, buf *bytes.Buffer) Expect {
+	if len(data) == 0 {
+		return exp
+	}
+
+	for k, v := range exp.Headers {
+		exp.Headers[k] = refMatcher.ReplaceAllStringFunc(v, func(m string) string {
+			key := strings.TrimPrefix(m, "$")
+			val, ok := data[key]
+			if !ok {
+				fmt.Fprintf(buf, "%s: %q in expected header %q has no captured value, leaving reference as is\n", yellow("WARNING"), m, k)
+				return m
+			}
+			return val
+		})
+	}
+	for k, v := range exp.Body {
+		s, isString := v.(string)
+		if !isString {
+			continue
+		}
+		exp.Body[k] = refMatcher.ReplaceAllStringFunc(s, func(m string) string {
+			key := strings.TrimPrefix(m, "$")
+			val, ok := data[key]
+			if !ok {
+				fmt.Fprintf(buf, "%s: %q in expected body field %q has no captured value, leaving reference as is\n", yellow("WARNING"), m, k)
+				return m
+			}
+			return val
+		})
+	}
+
+	return exp
+}
+
 func capture(body map[string][]string, headers http.Header, data map[string]string, captors Captors, buf *bytes.Buffer) {
-	//TODO: Warn if captor contains anything but the allowed set of alphabetical characters and dots
+	//TODO: Warn (Error?) if captor contains anything else but the allowed set of alphabetical characters and dots
 
 	for _, c := range captors {
 
@@ -180,6 +228,7 @@ func capture(body map[string][]string, headers http.Header, data map[string]stri
 		// Only search headers if no match found in body.
 		val, foundMatch := body[c.Name]
 		if !foundMatch {
+			//TODO: Add warning for when both header and body matches and header is skipped??
 			val, foundMatch = headers[http.CanonicalHeaderKey(c.Name)]
 		}
 
