@@ -153,10 +153,6 @@ func (t Test) run(name string, verbose bool, client *http.Client, buf *bytes.Buf
 }
 
 func injectRequest(req Request, data map[string]string, buf *bytes.Buffer) Request {
-	if len(data) == 0 {
-		return req
-	}
-
 	req.URL = refMatcher.ReplaceAllStringFunc(req.URL, func(m string) string {
 		key := strings.TrimPrefix(m, "$")
 		val, ok := data[key]
@@ -193,10 +189,6 @@ func injectRequest(req Request, data map[string]string, buf *bytes.Buffer) Reque
 }
 
 func injectExpect(exp Expect, data map[string]string, buf *bytes.Buffer) Expect {
-	if len(data) == 0 {
-		return exp
-	}
-
 	for k, v := range exp.Headers {
 		exp.Headers[k] = refMatcher.ReplaceAllStringFunc(v, func(m string) string {
 			key := strings.TrimPrefix(m, "$")
