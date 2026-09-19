@@ -108,12 +108,19 @@ type (
 	Headers map[string]string
 	// Body is a map of dot-separated field paths to expected values. See [Expect.Body].
 	Body map[string]any
-	// A Captor captures the value of a field or header with the given Name. To later reference the
-	// captured value use $Name. Set As to a value of your choice if you would like to reference it
-	// under a different name instead.
+	// A Captor captures a value from an HTTP response for later reference via the $-prefix.
 	Captor struct {
+		// Name is the response body field or header to capture, using the same dot-separated
+		// path syntax as Expect.Body for body fields.
 		Name string
-		As   string
+		// As is the key the captured value is stored under. If empty, Name is used instead.
+		// Reference the stored value elsewhere using the $-prefix, e.g. $Name or $As.
+		As string
+		// Regex, if set, cherry-picks part of the captured value instead of capturing it in
+		// full: the pattern's first capturing group is captured if it has one, otherwise the
+		// whole match is. Use non-capturing groups, (?:...), for whichever part of the pattern
+		// isn't what should be captured.
+		Regex string
 	}
 )
 
@@ -239,12 +246,34 @@ func capture(body map[string][]string, headers http.Header, data map[string]stri
 				fmt.Fprintf(buf, "%s: capturing %q: matched multiple values. Captures first one.\n", yellow("WARNING"), c.Name)
 			}
 
+			value := fmt.Sprint(val[0])
+
+			if c.Regex != "" {
+				re, err := regexp.Compile(c.Regex)
+				if err != nil {
+					fmt.Fprintf(buf, "%s: capturing %q: invalid Regex %q: %v\n", yellow("WARNING"), c.Name, c.Regex, err)
+					continue
+				}
+				match := re.FindStringSubmatch(value)
+				if match == nil {
+					fmt.Fprintf(buf, "%s: capturing %q: Regex %q matched nothing in the captured value.\n", yellow("WARNING"), c.Name, c.Regex)
+					continue
+				}
+				// match[1] is the first capturing group, if the pattern has one; otherwise
+				// match[0], the whole match, is all there is.
+				if len(match) > 1 {
+					value = match[1]
+				} else {
+					value = match[0]
+				}
+			}
+
 			// c.As is used as key if set, otherwise c.Name is the key.
 			key := c.Name
 			if c.As != "" {
 				key = c.As
 			}
-			data[key] = fmt.Sprint(val[0])
+			data[key] = value
 		} else {
 			fmt.Fprintf(buf, "%s: capturing %q: matched nothing.\n", yellow("WARNING"), c.Name)
 		}
