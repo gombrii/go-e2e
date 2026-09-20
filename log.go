@@ -53,7 +53,7 @@ func (l *log) success() {
 // banner prints name centered and dash-padded, in yellow, as the title line at the top of a
 // test's output.
 func (l *log) banner(name string) {
-	fmt.Fprintln(l, yellow(center(name, 31)))
+	fmt.Fprintln(l, yellow(center(name, 48)))
 }
 
 // print prints args the same way fmt.Fprintln would. Used for plain, uncolored lines that
