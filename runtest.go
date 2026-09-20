@@ -10,43 +10,43 @@ import (
 	"strings"
 )
 
-func performTest(client *http.Client, buf *bytes.Buffer, req Request, expected Expect, verbose bool) (parsedBody map[string][]string, headers http.Header, res bool) {
-	printReq(buf, req)
+func performTest(client *http.Client, log *log, req Request, expected Expect, verbose bool) (parsedBody map[string][]string, headers http.Header, res bool) {
+	printReq(log, req)
 
 	resp, err := makeRequest(client, req)
 	if err != nil {
-		fmt.Fprintf(buf, "%s: making request: %v\n", pink("ERROR"), err)
+		log.error(fmt.Errorf("making request: %w", err))
 		return map[string][]string{}, http.Header{}, false
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Fprintf(buf, "%s: reading response body: %v\n", pink("ERROR"), err)
+		log.error(fmt.Errorf("reading response body: %w", err))
 		return map[string][]string{}, http.Header{}, false
 	}
 
-	printResp(buf, resp, body, expected, verbose)
+	printResp(log, resp, body, expected, verbose)
 
 	parsedBody, err = parseBody(body, resp.Header.Get("Content-Type"))
 	if err != nil {
-		fmt.Fprintf(buf, "%s: parsing response body: %v\n", yellow("WARNING"), err)
+		log.warning("parsing response body: %v", err)
 	}
 
 	if err := assertStatus(expected.Status, resp.StatusCode); err != nil {
-		fmt.Fprintf(buf, "%s: status: %v\n", pink("FAIL"), err)
+		log.fail(fmt.Errorf("status: %w", err))
 		return map[string][]string{}, http.Header{}, false
 	}
 	if err := assertHeaders(expected.Headers, resp.Header); err != nil {
-		fmt.Fprintf(buf, "%s: header: %v\n", pink("FAIL"), err)
+		log.fail(fmt.Errorf("header: %w", err))
 		return map[string][]string{}, http.Header{}, false
 	}
 	if err := assertBody(expected.Body, parsedBody); err != nil {
-		fmt.Fprintf(buf, "%s: body: %v\n", pink("FAIL"), err)
+		log.fail(fmt.Errorf("body: %w", err))
 		return map[string][]string{}, http.Header{}, false
 	}
 
-	fmt.Fprintln(buf, green("SUCCESS"))
+	log.success()
 	return parsedBody, resp.Header, true
 }
 
@@ -68,27 +68,25 @@ func makeRequest(client *http.Client, reqSetup Request) (*http.Response, error) 
 	return resp, nil
 }
 
-func printReq(buf *bytes.Buffer, req Request) {
-	fmt.Fprintln(buf, grey("->"), req.Method, req.URL)
+func printReq(log *log, req Request) {
+	log.send("%s %s", req.Method, req.URL)
 	for k, v := range req.Headers {
-		fmt.Fprintf(buf, grey("-> ")+"%s: %s\n", k, v)
+		log.send("%s: %s", k, v)
 	}
 	if len(req.Body) > 0 {
-		fmt.Fprint(buf, grey("-> ")+ensureEndingNL(format([]byte(req.Body), req.Headers["Content-Type"])))
+		log.send("%s", format([]byte(req.Body), req.Headers["Content-Type"]))
 	}
 }
-func printResp(buf *bytes.Buffer, resp *http.Response, body []byte, expected Expect, verbose bool) {
-	fmt.Fprintln(buf, grey("<-"), resp.StatusCode)
+func printResp(log *log, resp *http.Response, body []byte, expected Expect, verbose bool) {
+	log.receive("%d", resp.StatusCode)
 	for k, v := range resp.Header {
 		if _, inExpected := expected.Headers[k]; verbose || inExpected {
-			fmt.Fprintf(buf, grey("<- ")+"%s: %s\n", k, strings.Join(v, "; "))
+			log.receive("%s: %s", k, strings.Join(v, "; "))
 		}
 	}
-	formattedBody := ""
 	if len(body) > 0 {
-		formattedBody = grey("<- ") + ensureEndingNL(format(body, resp.Header.Get("Content-Type")))
+		log.receive("%s", format(body, resp.Header.Get("Content-Type")))
 	}
-	fmt.Fprint(buf, formattedBody)
 }
 
 func assertStatus(expected int, actual int) error {

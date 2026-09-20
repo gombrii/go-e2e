@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"net/http"
@@ -148,39 +147,40 @@ func (t Test) validate() error {
 
 // run makes Test satisfy Runnable, letting it be declared standalone alongside Sequence, or
 // used as a step within one. Everything it needs is passed in rather than created
-// internally: a standalone Test gets its client/buf/data straight from Runner.Run, while a
+// internally: a standalone Test gets its client/log/data straight from Runner.Run, while a
 // step gets them from the Sequence it belongs to.
-func (t Test) run(verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) result {
+func (t Test) run(verbose bool, client *http.Client, log *log, data map[string]string) result {
 	if err := t.validate(); err != nil {
-		fmt.Fprintf(buf, "%s:\n%v\n", pink("ERROR"), err)
-		return result{buf: buf, passed: false}
+		log.error(err)
+		return result{log: log, passed: false}
 	}
 
 	if t.Before != nil {
-		description, err := t.Before(data, buf)
-		fmt.Fprintf(buf, "Pre-test action: %v\n", description)
+		description, err := t.Before(data, log)
+		log.print(fmt.Sprintf("Pre-test action: %v", description))
 		if err != nil {
-			fmt.Fprintf(buf, "\n%s: performing pre test action: %v\n", pink("ERROR"), err)
-			return result{buf: buf, passed: false}
+			log.print() // newline
+			log.error(fmt.Errorf("performing pre test action: %w", err))
+			return result{log: log, passed: false}
 		}
 	}
 
-	t.Request = injectRequest(t.Request, data, buf)
-	t.Expect = injectExpect(t.Expect, data, buf)
-	body, headers, passed := performTest(client, buf, t.Request, t.Expect, verbose)
+	t.Request = injectRequest(t.Request, data, log)
+	t.Expect = injectExpect(t.Expect, data, log)
+	body, headers, passed := performTest(client, log, t.Request, t.Expect, verbose)
 	if passed {
-		capture(body, headers, data, t.Capture, buf)
+		capture(body, headers, data, t.Capture, log)
 	}
 
-	return result{buf: buf, passed: passed}
+	return result{log: log, passed: passed}
 }
 
-func injectRequest(req Request, data map[string]string, buf *bytes.Buffer) Request {
+func injectRequest(req Request, data map[string]string, log *log) Request {
 	req.URL = refMatcher.ReplaceAllStringFunc(req.URL, func(m string) string {
 		key := strings.TrimPrefix(m, "$")
 		val, ok := data[key]
 		if !ok {
-			fmt.Fprintf(buf, "%s: %q in URL has no captured value, leaving reference as is\n", yellow("WARNING"), m)
+			log.warning("%q in URL has no captured value, leaving reference as is", m)
 			return m
 		}
 		return val
@@ -190,7 +190,7 @@ func injectRequest(req Request, data map[string]string, buf *bytes.Buffer) Reque
 			key := strings.TrimPrefix(m, "$")
 			val, ok := data[key]
 			if !ok {
-				fmt.Fprintf(buf, "%s: %q in header %q has no captured value, leaving reference as is\n", yellow("WARNING"), m, k)
+				log.warning("%q in header %q has no captured value, leaving reference as is", m, k)
 				return m
 			}
 			return val
@@ -200,7 +200,7 @@ func injectRequest(req Request, data map[string]string, buf *bytes.Buffer) Reque
 		key := strings.TrimPrefix(m, "$")
 		val, ok := data[key]
 		if !ok {
-			fmt.Fprintf(buf, "%s: %q in body has no captured value, leaving reference as is\n", yellow("WARNING"), m)
+			log.warning("%q in body has no captured value, leaving reference as is", m)
 			return m
 		}
 		return val
@@ -211,13 +211,13 @@ func injectRequest(req Request, data map[string]string, buf *bytes.Buffer) Reque
 	return req
 }
 
-func injectExpect(exp Expect, data map[string]string, buf *bytes.Buffer) Expect {
+func injectExpect(exp Expect, data map[string]string, log *log) Expect {
 	for k, v := range exp.Headers {
 		exp.Headers[k] = refMatcher.ReplaceAllStringFunc(v, func(m string) string {
 			key := strings.TrimPrefix(m, "$")
 			val, ok := data[key]
 			if !ok {
-				fmt.Fprintf(buf, "%s: %q in expected header %q has no captured value, leaving reference as is\n", yellow("WARNING"), m, k)
+				log.warning("%q in expected header %q has no captured value, leaving reference as is", m, k)
 				return m
 			}
 			return val
@@ -232,7 +232,7 @@ func injectExpect(exp Expect, data map[string]string, buf *bytes.Buffer) Expect 
 			key := strings.TrimPrefix(m, "$")
 			val, ok := data[key]
 			if !ok {
-				fmt.Fprintf(buf, "%s: %q in expected body field %q has no captured value, leaving reference as is\n", yellow("WARNING"), m, k)
+				log.warning("%q in expected body field %q has no captured value, leaving reference as is", m, k)
 				return m
 			}
 			return val
@@ -242,7 +242,7 @@ func injectExpect(exp Expect, data map[string]string, buf *bytes.Buffer) Expect 
 	return exp
 }
 
-func capture(body map[string][]string, headers http.Header, data map[string]string, captors Captors, buf *bytes.Buffer) {
+func capture(body map[string][]string, headers http.Header, data map[string]string, captors Captors, log *log) {
 	//TODO: Warn (Error?) if captor contains anything else but the allowed set of alphabetical characters and dots
 
 	for _, c := range captors {
@@ -255,7 +255,7 @@ func capture(body map[string][]string, headers http.Header, data map[string]stri
 
 		if foundMatch {
 			if len(val) > 1 {
-				fmt.Fprintf(buf, "%s: capturing %q: matched multiple values. Captures first one.\n", yellow("WARNING"), c.Name)
+				log.warning("capturing %q: matched multiple values. Captures first one.", c.Name)
 			}
 
 			value := fmt.Sprint(val[0])
@@ -263,12 +263,12 @@ func capture(body map[string][]string, headers http.Header, data map[string]stri
 			if c.Regex != "" {
 				re, err := regexp.Compile(c.Regex)
 				if err != nil {
-					fmt.Fprintf(buf, "%s: capturing %q: invalid Regex %q: %v\n", yellow("WARNING"), c.Name, c.Regex, err)
+					log.warning("capturing %q: invalid Regex %q: %v", c.Name, c.Regex, err)
 					continue
 				}
 				match := re.FindStringSubmatch(value)
 				if match == nil {
-					fmt.Fprintf(buf, "%s: capturing %q: Regex %q matched nothing in the captured value.\n", yellow("WARNING"), c.Name, c.Regex)
+					log.warning("capturing %q: regex %q matched nothing in the captured value.", c.Name, c.Regex)
 					continue
 				}
 				// match[1] is the first capturing group, if the pattern has one; otherwise
@@ -287,7 +287,7 @@ func capture(body map[string][]string, headers http.Header, data map[string]stri
 			}
 			data[key] = value
 		} else {
-			fmt.Fprintf(buf, "%s: capturing %q: matched nothing.\n", yellow("WARNING"), c.Name)
+			log.warning("capturing %q: matched nothing.", c.Name)
 		}
 	}
 }

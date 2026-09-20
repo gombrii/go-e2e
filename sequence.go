@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"net/http"
@@ -28,26 +27,26 @@ func (s Sequence) validate() error {
 }
 
 // run makes Sequence satisfy Runnable, letting it be declared alongside standalone Tests.
-// client, buf, and data all come from Runner.Run; Sequence just shares them with each of its
+// client, log, and data all come from Runner.Run; Sequence just shares them with each of its
 // own steps in turn.
-func (s Sequence) run(verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) result {
+func (s Sequence) run(verbose bool, client *http.Client, log *log, data map[string]string) result {
 	if err := s.validate(); err != nil {
-		fmt.Fprintf(buf, "%s: %v\n", pink("ERROR"), err)
-		return result{buf, false}
+		log.error(err)
+		return result{log, false}
 	}
 
 	allPassed := true
 	for i, step := range s {
-		fmt.Fprintf(buf, "Step %d\n", i+1)
-		if res := step.run(verbose, client, buf, data); !res.passed {
+		log.print(fmt.Sprintf("Step %d", i+1))
+		if res := step.run(verbose, client, log, data); !res.passed {
 			allPassed = false
 			break
 		}
 		if i < len(s)-1 {
-			fmt.Fprintln(buf)
+			log.print()
 		}
 	}
-	fmt.Fprintln(buf, yellow("---------------------------------\n"))
+	log.separator()
 
-	return result{buf, allPassed}
+	return result{log, allPassed}
 }

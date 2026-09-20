@@ -4,7 +4,6 @@
 package e2e
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,14 +20,14 @@ type Runner struct {
 }
 
 type result struct {
-	buf    *bytes.Buffer
+	log    *log
 	passed bool
 }
 
 // Runnable is satisfied by Sequence and Test, letting Runner.Run declare a container type
 // for either. Its method is unexported, so nothing outside this package can implement it.
 type Runnable interface {
-	run(verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) result
+	run(verbose bool, client *http.Client, log *log, data map[string]string) result
 }
 
 // Run executes the given tests, prints the output, and prompts for confirmation before
@@ -57,9 +56,9 @@ func (r Runner) Run(tests map[string]Runnable) {
 		wg.Add(1)
 		go func(name string, t Runnable) {
 			defer wg.Done()
-			buf := &bytes.Buffer{}
-			fmt.Fprintln(buf, yellow(center(name, 31)))
-			ch <- t.run(r.Verbose, client, buf, make(map[string]string))
+			log := &log{}
+			log.banner(name)
+			ch <- t.run(r.Verbose, client, log, make(map[string]string))
 		}(name, t)
 	}
 
@@ -93,10 +92,10 @@ Failed tests: %6d
 	for _, result := range results {
 		switch full {
 		case true:
-			fmt.Print(result.buf.String())
+			fmt.Print(result.log.String())
 		case false:
 			if !result.passed {
-				fmt.Print(result.buf.String())
+				fmt.Print(result.log.String())
 			}
 		}
 	}

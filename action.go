@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,9 +11,9 @@ import (
 
 // Action is a pre-test action run before a Test's request is made. It receives the shared
 // data map so it can read values captured by earlier steps and write data to be used later,
-// and buf so it can report warnings alongside the rest of the test's output. Use one of the
+// and log so it can report warnings alongside the rest of the test's output. Use one of the
 // helper functions [Delay], [Input], or [Command] to create one.
-type Action func(data map[string]string, buf *bytes.Buffer) (string, error)
+type Action func(data map[string]string, log *log) (string, error)
 
 // Delay pauses execution for the given duration before the test runs. The duration is
 // parsed using Go's standard format, e.g. "500ms" or "2s". Progress is shown with a
@@ -24,7 +23,7 @@ type Action func(data map[string]string, buf *bytes.Buffer) (string, error)
 // before the next assertion, for example waiting for a cache to populate, for an
 // eventual consistency window to close, or for a background job to complete.
 func Delay(delay string) Action {
-	return func(data map[string]string, _ *bytes.Buffer) (string, error) {
+	return func(data map[string]string, _ *log) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
 
@@ -58,7 +57,7 @@ func Delay(delay string) Action {
 // shown to the user. The entered value is stored under as and can be referenced
 // elsewhere in the test using the $-prefix, e.g. "$as".
 func Input(prompt, as string) Action {
-	return func(data map[string]string, _ *bytes.Buffer) (string, error) {
+	return func(data map[string]string, _ *log) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
 		reader := bufio.NewReader(os.Stdin)
@@ -91,7 +90,7 @@ func Input(prompt, as string) Action {
 // Useful for fetching local dynamic data, displaying a QR code, or any other side
 // effect that should happen and be confirmed before the test proceeds.
 func Command(command string, args ...string) Action {
-	return func(data map[string]string, buf *bytes.Buffer) (string, error) {
+	return func(data map[string]string, log *log) (string, error) {
 		progressBarMutex.Lock()
 		defer progressBarMutex.Unlock()
 		reader := bufio.NewReader(os.Stdin)
@@ -104,7 +103,7 @@ func Command(command string, args ...string) Action {
 				key := strings.TrimPrefix(m, "$")
 				val, ok := data[key]
 				if !ok {
-					fmt.Fprintf(buf, "%s: %q in command args has no captured value, leaving reference as is\n", yellow("WARNING"), m)
+					log.warning("%q in command args has no captured value, leaving reference as is", m)
 					return m
 				}
 				return val

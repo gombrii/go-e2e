@@ -61,3 +61,9 @@ func (l *log) banner(name string) {
 func (l *log) separator() {
 	fmt.Fprintln(l, yellow("---------------------------------\n"))
 }
+
+// print prints args the same way fmt.Fprintln would. Used for plain, uncolored lines that
+// don't fit any of log's other, tagged methods.
+func (l *log) print(args ...any) {
+	fmt.Fprintln(l, args...)
+}
