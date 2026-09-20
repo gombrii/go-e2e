@@ -58,7 +58,7 @@ func (r Runner) Run(tests map[string]Runnable) {
 		go func(name string, t Runnable) {
 			defer wg.Done()
 			buf := &bytes.Buffer{}
-			fmt.Fprintln(buf, yellow(center(strings.ToUpper(name), 31)))
+			fmt.Fprintln(buf, yellow(center(name, 31)))
 			ch <- t.run(r.Verbose, client, buf, make(map[string]string))
 		}(name, t)
 	}
