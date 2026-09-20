@@ -297,7 +297,7 @@ Capture: []e2e.Captor{
 },
 ```
 
-Given the example header above, this captures `abc-123` under the key `sessionID`, referenced later as `$sessionID`. If `Regex` doesn't match anything within the captured value, or isn't valid regex syntax, nothing is captured.
+Given the example header above, this captures `abc-123` under the key `sessionID`, referenced later as `$sessionID`. If `Regex` isn't valid regex syntax, the test fails immediately, before anything runs, same as leaving `Request.Method` or `Request.URL` empty. If it's valid but doesn't match anything within the captured value, nothing is captured for that step.
 
 ### AddressBook (optional)
 The `AddressBook` is a feature provided by the `addr` package that enables runtime address lookup using a predefined addressbook in combination with the [`env`](#usage) parameter if passed to the `e2e` tool. This is to be able to make tests environment agnostic. Instead of a hardcoded URL, a test will be targeted toward a named address defined in the `AddressBook`. The `env` passed will then decide which variant of that address will be used.

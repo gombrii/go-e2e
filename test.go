@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 )
 
 // Test defines a single HTTP call and the expectations against its response. Declare it
@@ -120,6 +121,11 @@ func (t Test) validate() error {
 	for _, c := range t.Capture {
 		if c.Name == "" {
 			errs = append(errs, errors.New("a Captor has no Name set"))
+		}
+		if c.Regex != "" {
+			if _, err := regexp.Compile(c.Regex); err != nil {
+				errs = append(errs, fmt.Errorf("a Captor has invalid Regex %q: %v", c.Regex, err))
+			}
 		}
 	}
 	return errors.Join(errs...)

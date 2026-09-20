@@ -31,7 +31,7 @@ func (c Captor) key() string {
 
 // capture finds c's value in body or headers (body checked first, headers only if nothing
 // matched there), applies Regex if set, and returns it. ok is false, with a warning already
-// logged, if nothing matched at all, or Regex was invalid or matched nothing.
+// logged, if nothing matched at all, or Regex matched nothing.
 func (c Captor) capture(body map[string][]string, headers http.Header, log *log) (value string, ok bool) {
 	val, foundMatch := body[c.Name]
 	if !foundMatch {
@@ -46,22 +46,18 @@ func (c Captor) capture(body map[string][]string, headers http.Header, log *log)
 	}
 
 	value = fmt.Sprint(val[0])
-	if c.Regex == "" {
-		return value, true
+	if c.Regex != "" {
+		return c.extract(value, log)
 	}
-	return c.extract(value, log)
+	return value, true
 }
 
 // extract cherry-picks part of value using c.Regex: the pattern's first capturing group if it
-// has one, otherwise the whole match. ok is false, with a warning already logged, if Regex is
-// invalid or matches nothing.
+// has one, otherwise the whole match. ok is false, with a warning already logged, if Regex
+// matches nothing. Regex is assumed to already be valid regex syntax, Test.validate checks
+// that before run ever gets this far.
 func (c Captor) extract(value string, log *log) (result string, ok bool) {
-	re, err := regexp.Compile(c.Regex)
-	if err != nil { // should be a real error checked at validation. Compile regex at validation an store in a non-exported field to be used later.
-		log.warning("capturing %q: invalid Regex %q: %v", c.Name, c.Regex, err)
-		return "", false
-	}
-	match := re.FindStringSubmatch(value)
+	match := regexp.MustCompile(c.Regex).FindStringSubmatch(value)
 	if match == nil {
 		log.warning("capturing %q: regex %q matched nothing in the captured value.", c.Name, c.Regex)
 		return "", false
