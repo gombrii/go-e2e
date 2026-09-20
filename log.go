@@ -56,12 +56,6 @@ func (l *log) banner(name string) {
 	fmt.Fprintln(l, yellow(center(name, 31)))
 }
 
-// separator prints a yellow dashed rule, followed by a blank line, marking the end of a
-// Sequence's output.
-func (l *log) separator() {
-	fmt.Fprintln(l, yellow("---------------------------------\n"))
-}
-
 // print prints args the same way fmt.Fprintln would. Used for plain, uncolored lines that
 // don't fit any of log's other, tagged methods.
 func (l *log) print(args ...any) {

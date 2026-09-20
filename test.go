@@ -172,6 +172,8 @@ func (t Test) run(verbose bool, client *http.Client, log *log, data map[string]s
 		capture(body, headers, data, t.Capture, log)
 	}
 
+	log.print()
+
 	return result{log: log, passed: passed}
 }
 

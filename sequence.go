@@ -42,11 +42,7 @@ func (s Sequence) run(verbose bool, client *http.Client, log *log, data map[stri
 			allPassed = false
 			break
 		}
-		if i < len(s)-1 {
-			log.print()
-		}
 	}
-	log.separator()
 
 	return result{log, allPassed}
 }
