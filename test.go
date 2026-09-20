@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// Matches strings such as "$user" and "$var.field.subfield".
-var refMatcher *regexp.Regexp = regexp.MustCompile(`\$\w+(?:\.\w+)*`)
+// Matches strings such as "$user", "$var.field.subfield", and "$X-Amzn-Trace-Id".
+var refMatcher *regexp.Regexp = regexp.MustCompile(`\$[\w-]+(?:\.[\w-]+)*`)
 
 // Test defines a single HTTP call and the expectations against its response. Declare it
 // directly as a standalone test, or use it as a step within a Sequence. Fields not set
@@ -245,8 +245,6 @@ func injectExpect(exp Expect, data map[string]string, log *log) Expect {
 }
 
 func capture(body map[string][]string, headers http.Header, data map[string]string, captors Captors, log *log) {
-	//TODO: Warn (Error?) if captor contains anything else but the allowed set of alphabetical characters and dots
-
 	for _, c := range captors {
 		// Only search headers if no match found in body.
 		val, foundMatch := body[c.Name]
