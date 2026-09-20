@@ -27,7 +27,7 @@ type result struct {
 // Runnable is satisfied by Sequence and Test, letting Runner.Run declare a container type
 // for either. Its method is unexported, so nothing outside this package can implement it.
 type Runnable interface {
-	run(verbose bool, client *http.Client, log *log, data map[string]string) result
+	run(verbose bool, client *http.Client, log *log, cache cache) result
 }
 
 // Run executes the given tests, prints the output, and prompts for confirmation before
@@ -58,7 +58,7 @@ func (r Runner) Run(tests map[string]Runnable) {
 			defer wg.Done()
 			log := &log{}
 			log.banner(name)
-			ch <- t.run(r.Verbose, client, log, make(map[string]string))
+			ch <- t.run(r.Verbose, client, log, cache{})
 		}(name, t)
 	}
 

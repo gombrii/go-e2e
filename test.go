@@ -4,12 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
-	"strings"
 )
-
-// Matches strings such as "$user", "$var.field.subfield", and "$X-Amzn-Trace-Id".
-var refMatcher *regexp.Regexp = regexp.MustCompile(`\$[\w-]+(?:\.[\w-]+)*`)
 
 // Test defines a single HTTP call and the expectations against its response. Declare it
 // directly as a standalone test, or use it as a step within a Sequence. Fields not set
@@ -24,10 +19,10 @@ type Test struct {
 	// Expect defines expectations on the HTTP response. Only the fields you set are validated,
 	// unset fields accept any value.
 	Expect Expect
-	// Capture lists Captors naming response body fields or headers whose values should be stored
-	// and made available to later steps via the $-prefix. Has no effect on a standalone Test,
-	// since there is no later step to receive it.
-	Capture Captors
+	// Capture lists Captor entries naming response body fields or headers whose values should
+	// be stored and made available to later steps via the $-prefix. Has no effect on a
+	// standalone Test, since there is no later step to receive it.
+	Capture []Captor
 }
 
 type (
@@ -100,7 +95,6 @@ type (
 		// exists.
 		Body Body
 	}
-	Captors []Captor
 )
 
 type (
@@ -108,26 +102,12 @@ type (
 	Headers map[string]string
 	// Body is a map of dot-separated field paths to expected values. See [Expect.Body].
 	Body map[string]any
-	// A Captor captures a value from an HTTP response for later reference via the $-prefix.
-	Captor struct {
-		// Name is the response body field or header to capture, using the same dot-separated
-		// path syntax as Expect.Body for body fields.
-		Name string
-		// As is the key the captured value is stored under. If empty, Name is used instead.
-		// Reference the stored value elsewhere using the $-prefix, e.g. $Name or $As.
-		As string
-		// Regex, if set, cherry-picks part of the captured value instead of capturing it in
-		// full: the pattern's first capturing group is captured if it has one, otherwise the
-		// whole match is. Use non-capturing groups, (?:...), for whichever part of the pattern
-		// isn't what should be captured.
-		Regex string
-	}
 )
 
 // validate reports a structural problem that could never be intentional, e.g. a Request with
 // no URL. run calls it first, before doing anything else, so a mistake like that fails
 // immediately instead of surfacing as a confusing failure partway through a request that was
-// never going to work. This is different from the warnings inject/capture print at runtime for
+// never going to work. This is different from the warnings expand/capture print at runtime for
 // things that could plausibly be fine, such as a $-reference with nothing captured for it yet.
 func (t Test) validate() error {
 	var errs []error
@@ -147,16 +127,16 @@ func (t Test) validate() error {
 
 // run makes Test satisfy Runnable, letting it be declared standalone alongside Sequence, or
 // used as a step within one. Everything it needs is passed in rather than created
-// internally: a standalone Test gets its client/log/data straight from Runner.Run, while a
+// internally: a standalone Test gets its client/log/cache straight from Runner.Run, while a
 // step gets them from the Sequence it belongs to.
-func (t Test) run(verbose bool, client *http.Client, log *log, data map[string]string) result {
+func (t Test) run(verbose bool, client *http.Client, log *log, cache cache) result {
 	if err := t.validate(); err != nil {
 		log.error(err)
 		return result{log: log, passed: false}
 	}
 
 	if t.Before != nil {
-		description, err := t.Before(data, log)
+		description, err := t.Before(cache, log)
 		log.print(fmt.Sprintf("Pre-test action: %v", description))
 		if err != nil {
 			log.print() // newline
@@ -165,129 +145,43 @@ func (t Test) run(verbose bool, client *http.Client, log *log, data map[string]s
 		}
 	}
 
-	t.Request = injectRequest(t.Request, data, log)
-	t.Expect = injectExpect(t.Expect, data, log)
+	t.Request = expandRequest(t.Request, cache, log)
+	t.Expect = expandExpect(t.Expect, cache, log)
 	body, headers, passed := performTest(client, log, t.Request, t.Expect, verbose)
 	if passed {
-		capture(body, headers, data, t.Capture, log)
+		for _, c := range t.Capture {
+			if value, ok := c.capture(body, headers, log); ok {
+				cache[c.key()] = value
+			}
+		}
 	}
 
-	log.print()
+	log.print() // newline
 
 	return result{log: log, passed: passed}
 }
 
-func injectRequest(req Request, data map[string]string, log *log) Request {
-	req.URL = refMatcher.ReplaceAllStringFunc(req.URL, func(m string) string {
-		key := strings.TrimPrefix(m, "$")
-		val, ok := data[key]
-		if !ok {
-			log.warning("%q in URL has no captured value, leaving reference as is", m)
-			return m
-		}
-		return val
-	})
+func expandRequest(req Request, cache cache, log *log) Request {
+	req.URL = cache.expand(req.URL, "URL", log)
 	for k, v := range req.Headers {
-		req.Headers[k] = refMatcher.ReplaceAllStringFunc(v, func(m string) string {
-			key := strings.TrimPrefix(m, "$")
-			val, ok := data[key]
-			if !ok {
-				log.warning("%q in header %q has no captured value, leaving reference as is", m, k)
-				return m
-			}
-			return val
-		})
+		req.Headers[k] = cache.expand(v, fmt.Sprintf("header %q", k), log)
 	}
-	req.Body = refMatcher.ReplaceAllStringFunc(req.Body, func(m string) string {
-		key := strings.TrimPrefix(m, "$")
-		val, ok := data[key]
-		if !ok {
-			log.warning("%q in body has no captured value, leaving reference as is", m)
-			return m
-		}
-		return val
-	})
-
-	// TODO: should the t.Before injection be managed together with this and injectExpect?
+	req.Body = cache.expand(req.Body, "body", log)
 
 	return req
 }
 
-func injectExpect(exp Expect, data map[string]string, log *log) Expect {
+func expandExpect(exp Expect, cache cache, log *log) Expect {
 	for k, v := range exp.Headers {
-		exp.Headers[k] = refMatcher.ReplaceAllStringFunc(v, func(m string) string {
-			key := strings.TrimPrefix(m, "$")
-			val, ok := data[key]
-			if !ok {
-				log.warning("%q in expected header %q has no captured value, leaving reference as is", m, k)
-				return m
-			}
-			return val
-		})
+		exp.Headers[k] = cache.expand(v, fmt.Sprintf("expected header %q", k), log)
 	}
 	for k, v := range exp.Body {
 		s, isString := v.(string)
 		if !isString {
 			continue
 		}
-		exp.Body[k] = refMatcher.ReplaceAllStringFunc(s, func(m string) string {
-			key := strings.TrimPrefix(m, "$")
-			val, ok := data[key]
-			if !ok {
-				log.warning("%q in expected body field %q has no captured value, leaving reference as is", m, k)
-				return m
-			}
-			return val
-		})
+		exp.Body[k] = cache.expand(s, fmt.Sprintf("expected body field %q", k), log)
 	}
 
 	return exp
-}
-
-func capture(body map[string][]string, headers http.Header, data map[string]string, captors Captors, log *log) {
-	for _, c := range captors {
-		// Only search headers if no match found in body.
-		val, foundMatch := body[c.Name]
-		if !foundMatch {
-			//TODO: Add warning for when both header and body matches and header is skipped??
-			val, foundMatch = headers[http.CanonicalHeaderKey(c.Name)]
-		}
-
-		if foundMatch {
-			if len(val) > 1 {
-				log.warning("capturing %q: matched multiple values. Captures first one.", c.Name)
-			}
-
-			value := fmt.Sprint(val[0])
-
-			if c.Regex != "" {
-				re, err := regexp.Compile(c.Regex)
-				if err != nil {
-					log.warning("capturing %q: invalid Regex %q: %v", c.Name, c.Regex, err)
-					continue
-				}
-				match := re.FindStringSubmatch(value)
-				if match == nil {
-					log.warning("capturing %q: regex %q matched nothing in the captured value.", c.Name, c.Regex)
-					continue
-				}
-				// match[1] is the first capturing group, if the pattern has one; otherwise
-				// match[0], the whole match, is all there is.
-				if len(match) > 1 {
-					value = match[1]
-				} else {
-					value = match[0]
-				}
-			}
-
-			// c.As is used as key if set, otherwise c.Name is the key.
-			key := c.Name
-			if c.As != "" {
-				key = c.As
-			}
-			data[key] = value
-		} else {
-			log.warning("capturing %q: matched nothing.", c.Name)
-		}
-	}
 }

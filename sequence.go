@@ -27,9 +27,9 @@ func (s Sequence) validate() error {
 }
 
 // run makes Sequence satisfy Runnable, letting it be declared alongside standalone Tests.
-// client, log, and data all come from Runner.Run; Sequence just shares them with each of its
+// client, log, and cache all come from Runner.Run; Sequence just shares them with each of its
 // own steps in turn.
-func (s Sequence) run(verbose bool, client *http.Client, log *log, data map[string]string) result {
+func (s Sequence) run(verbose bool, client *http.Client, log *log, cache cache) result {
 	if err := s.validate(); err != nil {
 		log.error(err)
 		return result{log, false}
@@ -38,7 +38,7 @@ func (s Sequence) run(verbose bool, client *http.Client, log *log, data map[stri
 	allPassed := true
 	for i, step := range s {
 		log.print(fmt.Sprintf("Step %d", i+1))
-		if res := step.run(verbose, client, log, data); !res.passed {
+		if res := step.run(verbose, client, log, cache); !res.passed {
 			allPassed = false
 			break
 		}

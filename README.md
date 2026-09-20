@@ -148,7 +148,7 @@ There are many more parameters to a test. `Capture` only matters as a step in a 
 			"Content-Type": "application/json",
 		},
 	},
-	Capture: e2e.Captors{{Name: "completed"}}, // Advanced property, see Sequences below
+	Capture: []e2e.Captor{{Name: "completed"}}, // Advanced property, see Sequences below
 }
 ```
 
@@ -260,7 +260,7 @@ var FingerprintOrderFlow = e2e.Sequence{
 				"token": "",
 			},
 		},
-		Capture: e2e.Captors{{Name: "token", As: "authToken"}}, // Captures the "token" field from the response body, storing it under "authToken"
+		Capture: []e2e.Captor{{Name: "token", As: "authToken"}}, // Captures the "token" field from the response body, storing it under "authToken"
 	},
 	{
 		Request: e2e.Request{
@@ -274,7 +274,7 @@ var FingerprintOrderFlow = e2e.Sequence{
 				"url": "",
 			},
 		},
-		Capture: e2e.Captors{{Name: "url"}}, // Captures whatever was the value of the "url" field in the response body
+		Capture: []e2e.Captor{{Name: "url"}}, // Captures whatever was the value of the "url" field in the response body
 	},
 	{
 		Request: e2e.Request{
@@ -292,7 +292,7 @@ var FingerprintOrderFlow = e2e.Sequence{
 Sometimes the value you want isn't the whole field or header, just part of it. A cookie header like `Set-Cookie: __Host-session=abc-123 secure-http strict` is a common example. Set `Regex` on a `Captor` to cherry-pick part of the matched value instead of capturing it whole. If the pattern has a capturing group, that group is captured; if it has none, the whole match is captured instead. Use a non-capturing group, `(?:...)`, for any part of the pattern you need for context but don't want captured. There's never a need to pick a group by number, the first (and, in practice, only) capturing group you write is always the one used.
 
 ```go
-Capture: e2e.Captors{
+Capture: []e2e.Captor{
 	{Name: "Set-Cookie", As: "sessionID", Regex: `__Host-session=(\S+)`},
 },
 ```
