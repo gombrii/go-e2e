@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -124,15 +125,37 @@ type (
 	}
 )
 
+// validate reports a structural problem that could never be intentional, e.g. a Request with
+// no URL. run calls it first, before doing anything else, so a mistake like that fails
+// immediately instead of surfacing as a confusing failure partway through a request that was
+// never going to work. This is different from the warnings inject/capture print at runtime for
+// things that could plausibly be fine, such as a $-reference with nothing captured for it yet.
+func (t Test) validate() error {
+	var errs []error
+	if t.Request.Method == "" {
+		errs = append(errs, errors.New("Request.Method is not set"))
+	}
+	if t.Request.URL == "" {
+		errs = append(errs, errors.New("Request.URL is not set"))
+	}
+	for _, c := range t.Capture {
+		if c.Name == "" {
+			errs = append(errs, errors.New("a Captor has no Name set"))
+		}
+	}
+	return errors.Join(errs...)
+}
+
 // run makes Test satisfy Runnable, letting it be declared standalone alongside Sequence, or
 // used as a step within one. Everything it needs is passed in rather than created
 // internally: a standalone Test gets its client/buf/data straight from Runner.Run, while a
 // step gets them from the Sequence it belongs to.
-//
-// name is the key this Test was declared under when standalone, or the "Step N" label a
-// Sequence assigns it when it's one of its steps. Either way it's printed as this run's
-// banner.
-func (t Test) run(name string, verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) result {
+func (t Test) run(verbose bool, client *http.Client, buf *bytes.Buffer, data map[string]string) result {
+	if err := t.validate(); err != nil {
+		fmt.Fprintf(buf, "%s:\n%v\n", pink("ERROR"), err)
+		return result{buf: buf, passed: false}
+	}
+
 	if t.Before != nil {
 		description, err := t.Before(data, buf)
 		fmt.Fprintf(buf, "Pre-test action: %v\n", description)
@@ -223,9 +246,6 @@ func capture(body map[string][]string, headers http.Header, data map[string]stri
 	//TODO: Warn (Error?) if captor contains anything else but the allowed set of alphabetical characters and dots
 
 	for _, c := range captors {
-
-		//TODO: Name is required, Key is optional. Error out here if any of these are not met.
-
 		// Only search headers if no match found in body.
 		val, foundMatch := body[c.Name]
 		if !foundMatch {
