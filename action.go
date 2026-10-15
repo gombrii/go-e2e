@@ -79,7 +79,7 @@ func Input(prompt, as string) Action {
 			cache[as] = strings.TrimSpace(input)
 		}
 
-		return fmt.Sprintf("manual input: %q", prompt), nil
+		return fmt.Sprintf("manual input: %s", prompt), nil
 	}
 }
 
@@ -126,6 +126,6 @@ func Command(command string, args ...string) Action {
 
 		moveUp(1) // To line where progress bar is drawn
 
-		return fmt.Sprintf("command run: %q", command), nil
+		return fmt.Sprintf("command run: %s", strings.Join(append([]string{command}, args...), " ")), nil
 	}
 }
