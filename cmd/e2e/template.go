@@ -16,11 +16,8 @@ import (
 
 func main() {
 	e2e{{ .Noise }}.Runner{
-	{{- if .Setup.BeforeRun}}
-		BeforeRun: {{ .Setup.PkgName }}.{{ .Setup.BeforeRun }},
-	{{- end }}
-	{{- if .Setup.AfterRun }}
-		AfterRun: {{ .Setup.PkgName }}.{{ .Setup.AfterRun }},
+	{{- if .Setup.Config }}
+		Config: {{ .Setup.PkgName }}.{{ .Setup.Config }},
 	{{- end }}
 		Verbose: {{ .Verbose }},
 	}.Run(map[string]e2e{{ .Noise }}.Runnable{

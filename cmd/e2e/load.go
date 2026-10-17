@@ -13,10 +13,12 @@ import (
 )
 
 type setup struct {
-	PkgPath   string
-	PkgName   string
-	BeforeRun string
-	AfterRun  string
+	PkgPath string
+	PkgName string
+	Dir     string
+	// Config is the name of the exported var of type e2e.Config declared in the root package,
+	// if any.
+	Config string
 }
 
 type packageInfo struct {
@@ -104,14 +106,7 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 						}
 						typ := obj.Type()
 
-						named, ok := typ.(*types.Named)
-						if !ok {
-							continue
-						}
-						if named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != "github.com/gombrii/go-e2e" {
-							continue
-						}
-						typeName := named.Obj().Name()
+						typeName := e2eTypeName(typ)
 						if typeName != "Sequence" && typeName != "Test" {
 							continue
 						}
@@ -197,39 +192,43 @@ func loadSetup(cfg *packages.Config) (setup, error) {
 		return setup{}, fmt.Errorf("loading root package: %v", err)
 	}
 
-	hooks := setup{}
+	stp := setup{}
 	root := pkgs[0]
 	for _, file := range root.Syntax {
 		for _, decl := range file.Decls {
-			fn, ok := decl.(*ast.FuncDecl)
-			if !ok || fn.Recv != nil || fn.Name == nil || !fn.Name.IsExported() {
+			gen, ok := decl.(*ast.GenDecl)
+			if !ok || gen.Tok != token.VAR {
 				continue
 			}
-
-			switch fn.Name.Name {
-			case "BeforeRun":
-				if fn.Type.Results != nil && len(fn.Type.Params.List) == 0 && len(fn.Type.Results.List) == 1 {
-					result := root.TypesInfo.TypeOf(fn.Type.Results.List[0].Type)
-					if iface, ok := result.Underlying().(*types.Interface); ok && iface.NumMethods() == 0 {
-						hooks.BeforeRun = "BeforeRun"
-						hooks.PkgPath = root.PkgPath
-						hooks.PkgName = root.Name
+			for _, spec := range gen.Specs {
+				for _, name := range spec.(*ast.ValueSpec).Names {
+					obj := root.TypesInfo.Defs[name]
+					if obj == nil || !obj.Exported() || e2eTypeName(obj.Type()) != "Config" {
+						continue
 					}
-				}
-			case "AfterRun":
-				if fn.Type.Results == nil && len(fn.Type.Params.List) == 1 {
-					param := root.TypesInfo.TypeOf(fn.Type.Params.List[0].Type)
-					if iface, ok := param.Underlying().(*types.Interface); ok && iface.NumMethods() == 0 {
-						hooks.AfterRun = "AfterRun"
-						hooks.PkgPath = root.PkgPath
-						hooks.PkgName = root.Name
+					if stp.Config != "" {
+						return setup{}, fmt.Errorf("multiple e2e.Config declared in root package: %s and %s", stp.Config, name.Name)
 					}
+					stp.Config = name.Name
+					stp.PkgPath = root.PkgPath
+					stp.PkgName = root.Name
+					stp.Dir = root.Dir
 				}
 			}
 		}
 	}
 
-	return hooks, nil
+	return stp, nil
+}
+
+// e2eTypeName returns the name of typ if it's a named type declared in the e2e package, or ""
+// otherwise. Pointers aren't followed, so *e2e.Test returns "".
+func e2eTypeName(typ types.Type) string {
+	named, ok := typ.(*types.Named)
+	if !ok || named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != "github.com/gombrii/go-e2e" {
+		return ""
+	}
+	return named.Obj().Name()
 }
 
 func separate(wd, target string) (dir string, file string) {
