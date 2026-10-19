@@ -1,0 +1,21 @@
+Usage: e2e [-v] <pattern> [env]
+
+[-v] is optional:
+  Print all response headers, not only the expected ones.
+
+<pattern> follows the same rules as go test:
+  .            current package
+  ./tests      specific package
+  ./tests.go   specific file
+  ./...        current package and all subpackages
+
+[env] is optional:
+  Specify a custom environment name (e.g. DEV, PROD) to pass to your tests.
+  addr.Lookup uses it to pick addresses from the AddressBook in your e2e.Config.
+
+Examples:
+  e2e .                # Run tests in current package
+  e2e ./tests          # Run tests in ./tests
+  e2e ./tests.go       # Run tests only in tests.go
+  e2e ./... DEV        # Run tests recursively, passing env=DEV
+  e2e -v ./... DEV     # Run tests with verbose header output

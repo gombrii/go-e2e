@@ -1,47 +1,34 @@
 package main
 
 import (
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
-	"time"
 )
 
-const usageInstructions = `Usage: e2e [-v] <pattern> [env]
+var (
+	//go:embed templates/usage.txt
+	usageInstructions string
 
-[-v] is optional:
-  Print all response headers, not only the expected ones.
+	//go:embed templates/main.go.tmpl
+	runnerTpl string
 
-<pattern> follows the same rules as go test:
-  .            current package
-  ./tests      specific package
-  ./tests.go   specific file
-  ./...        current package and all subpackages
+	//go:embed templates/boot.go.tmpl
+	bootTpl string
 
-[env] is optional:
-  Specify a custom environment name (e.g. DEV, PROD) to pass to your tests.
-
-Examples:
-  e2e .                # Run tests in current package
-  e2e ./tests          # Run tests in ./tests
-  e2e ./tests.go       # Run tests only in tests.go
-  e2e ./... DEV        # Run tests recursively, passing env=DEV
-  e2e -v ./... DEV     # Run tests with verbose header output`
+	//go:embed templates/inject.go.tmpl
+	injectTpl string
+)
 
 const (
 	errorExit   = 1
 	badArgument = 2
 )
-
-type data struct {
-	Noise    int64
-	Setup    setup
-	Packages []packageInfo
-	Verbose  bool
-}
 
 func main() {
 	wd, _ := os.Getwd()
@@ -56,7 +43,7 @@ func main() {
 		fmt.Printf("Error setting up runner: %v\n", err)
 		os.Exit(errorExit)
 	}
-	data := data{time.Now().Unix(), setup, packages, verbose}
+
 	dir, err := os.MkdirTemp("", "e2e-runner-*")
 	if err != nil {
 		fmt.Printf("Error setting up runner: %v\n", err)
@@ -64,21 +51,28 @@ func main() {
 	}
 	defer os.RemoveAll(dir)
 
-	path := filepath.Join(dir, "runner.go")
-	file, err := os.Create(path)
-	if err != nil {
-		fmt.Printf("Error setting up runner: %v\n", err)
-		os.Exit(errorExit)
-	}
-	defer file.Close()
-
-	err = template.Must(template.New("runner").Parse(runner)).Execute(file, data)
+	runnerPath, err := generateFile("runner", dir, runnerTpl, map[string]any{
+		"Setup":    setup,
+		"Packages": packages,
+		"Verbose":  verbose,
+	})
 	if err != nil {
 		fmt.Printf("Error setting up runner: %v\n", err)
 		os.Exit(errorExit)
 	}
 
-	cmd := exec.Command("go", "run", path, env)
+	goArgs := []string{"run"}
+	if setup.Config != "" {
+		overlayPath, err := generateAddressBookFiles(dir, setup, packages)
+		if err != nil {
+			fmt.Printf("Error setting up runner: %v\n", err)
+			os.Exit(errorExit)
+		}
+
+		goArgs = append(goArgs, "-overlay="+overlayPath)
+	}
+
+	cmd := exec.Command("go", append(goArgs, runnerPath, env)...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -87,6 +81,54 @@ func main() {
 		fmt.Printf("Error executing runner: %v\n", err)
 		os.Exit(errorExit)
 	}
+}
+
+func generateFile(name, dir, tpl string, data any) (string, error) {
+	path := filepath.Join(dir, name+".go")
+	file, err := os.Create(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	return path, template.Must(template.New(name).Option("missingkey=error").Parse(tpl)).Execute(file, data)
+}
+
+func generateAddressBookFiles(dir string, setup setup, packages []packageInfo) (string, error) {
+	replace := make(map[string]string)
+
+	bootPath, err := generateFile("boot", dir, bootTpl, setup)
+	if err != nil {
+		return "", err
+	}
+	replace[filepath.Join(setup.Dir, "e2e_boot", "e2e_boot.go")] = bootPath
+
+	for _, pkg := range packages {
+		if pkg.PkgPath == setup.PkgPath {
+			continue // the root can't import boot
+		}
+		path, err := generateFile("inject_"+pkg.ImportAlias, dir, injectTpl,
+			map[string]any{
+				"SetupPath": setup.PkgPath,
+				"PkgName":   pkg.PkgName,
+			})
+		if err != nil {
+			return "", err
+		}
+		replace[filepath.Join(pkg.Dir, "e2e_inject.go")] = path
+	}
+
+	overlay, err := json.Marshal(struct{ Replace map[string]string }{replace})
+	if err != nil {
+		return "", err
+	}
+
+	overlayPath := filepath.Join(dir, "overlay.json")
+	if err := os.WriteFile(overlayPath, overlay, 0o666); err != nil {
+		return "", err
+	}
+
+	return overlayPath, nil
 }
 
 func args(args []string) (pattern, env string, verbose bool, err error) {

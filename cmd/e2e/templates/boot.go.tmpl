@@ -1,0 +1,10 @@
+package e2e_boot
+
+import (
+	root "{{ .PkgPath }}"
+	addr "github.com/gombrii/go-e2e/addr"
+)
+
+func init() {
+	addr.Set(root.{{ .Config }}.AddressBook)
+}

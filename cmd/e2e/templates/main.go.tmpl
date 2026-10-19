@@ -1,26 +1,27 @@
 package main
 
-var runner = `package main
-
 import (
 {{- if .Setup.PkgPath }}
-	{{ .Setup.PkgName }} "{{ .Setup.PkgPath }}"
+	root "{{ .Setup.PkgPath }}"
+{{- end }}
+{{- if .Setup.Config }}
+	_ "{{ .Setup.PkgPath }}/e2e_boot"
 {{- end }}
 {{- range .Packages }}
 {{- if ne .PkgPath $.Setup.PkgPath }}
 	{{ .ImportAlias }} "{{ .PkgPath }}"
 {{- end }}
 {{- end }}
-	e2e{{ .Noise }} "github.com/gombrii/go-e2e"
+	e2e "github.com/gombrii/go-e2e"
 )
 
 func main() {
-	e2e{{ .Noise }}.Runner{
+	e2e.Runner{
 	{{- if .Setup.Config }}
-		Config: {{ .Setup.PkgName }}.{{ .Setup.Config }},
+		Config: root.{{ .Setup.Config }},
 	{{- end }}
 		Verbose: {{ .Verbose }},
-	}.Run(map[string]e2e{{ .Noise }}.Runnable{
+	}.Run(map[string]e2e.Runnable{
 {{- range .Packages }}
 	{{- $pkg := . }}
 	{{- range .ExportedVars }}
@@ -28,4 +29,4 @@ func main() {
 	{{- end }}
 {{- end }}
 	})
-}`
+}

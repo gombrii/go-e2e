@@ -10,21 +10,34 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gombrii/go-e2e/addr"
 )
 
-// Config is global configuration for the project that is automatically used by the e2e tool
-// if declared in an exported variable in the project root.
+// Config is project wide configuration. The e2e tool picks it up automatically when it's
+// declared in an exported variable in the project root, meaning the package in the directory
+// the tool is run from. Only one Config may be declared there. All fields are optional, as is
+// Config in its entirety.
 type Config struct {
-	BeforeRun func() any  // Called before any tests run.
-	AfterRun  func(any)   // Called after all tests have run.
-	TLS       *tls.Config // Used when initiating the http.Client that will run the tests.
+	// AddressBook enables addr.Lookup and addr.EnvLookup. Lookups work in all packages except the
+	// root.
+	AddressBook addr.AddressBook
+	// BeforeRun is called before any tests run. Whatever it returns is passed to AfterRun.
+	BeforeRun func() any
+	// AfterRun is called after all tests have run, receiving what BeforeRun returned, or nil
+	// if BeforeRun isn't set.
+	AfterRun func(any)
+	// TLS is used by the http.Client that runs all tests, e.g. to present a client
+	// certificate to servers requiring mTLS, or to trust a private CA. If nil, Go's default
+	// TLS behavior is used.
+	TLS *tls.Config
 }
 
 // Runner is the engine that executes tests. It is used internally by the e2e tool
 // and does not need to be instantiated directly.
 type Runner struct {
-	Config  Config
-	Verbose bool // When true, all response headers are printed, not only expected ones.
+	Config  Config // The project's Config, if one is declared in the project root.
+	Verbose bool   // When true, all response headers are printed, not only expected ones.
 }
 
 type result struct {

@@ -14,7 +14,6 @@ import (
 
 type setup struct {
 	PkgPath string
-	PkgName string
 	Dir     string
 	// Config is the name of the exported var of type e2e.Config declared in the root package,
 	// if any.
@@ -24,6 +23,7 @@ type setup struct {
 type packageInfo struct {
 	PkgPath string
 	PkgName string
+	Dir     string
 	// ImportAlias is the identifier this package is imported under in the generated runner.
 	// It's the same as PkgName, unless that name collided with another package's, in which
 	// case it's suffixed with a number to stay a unique Go identifier.
@@ -56,7 +56,7 @@ func load(wd, pattern string) (setup, []packageInfo, error) {
 		return setup{}, nil, err
 	}
 
-	assignImportAliases(stp.PkgPath, stp.PkgName, pkgs)
+	assignImportAliases(stp.PkgPath, pkgs)
 	disambiguateNames(pkgs)
 
 	return stp, pkgs, nil
@@ -123,7 +123,7 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 		}
 
 		if len(exportedVars) > 0 {
-			packages = append(packages, packageInfo{PkgPath: pkg.PkgPath, PkgName: pkg.Name, ExportedVars: exportedVars})
+			packages = append(packages, packageInfo{PkgPath: pkg.PkgPath, PkgName: pkg.Name, Dir: pkg.Dir, ExportedVars: exportedVars})
 		}
 	}
 
@@ -136,18 +136,16 @@ func loadPackages(cfg *packages.Config, wd, pattern string) ([]packageInfo, erro
 
 // assignImportAliases gives each package a unique Go import identifier to use in the
 // generated runner. Two different import paths can share a package name. E.g. two "tests"
-// packages living at different paths. Importing both under that same bare name would
+// packages living at different paths. Importing both under that same bare name wouldn't
+// compile, so every package after the first gets its name suffixed with a number.
 //
-// setupPkgPath and setupPkgName reserve the setup package's own name so that a different
-// package sharing it gets renumbered, and, when the setup package is itself one of these.
-func assignImportAliases(setupPkgPath, setupPkgName string, packages []packageInfo) {
-	seen := map[string]int{}
-	if setupPkgName != "" {
-		seen[setupPkgName] = 1
-	}
+// The root package is always imported as "root", and the go-e2e package as "e2e", so both
+// names are reserved. A user package named either of them gets renumbered too.
+func assignImportAliases(setupPkgPath string, packages []packageInfo) {
+	seen := map[string]int{"root": 1, "e2e": 1}
 	for i, pkg := range packages {
 		if pkg.PkgPath == setupPkgPath {
-			packages[i].ImportAlias = setupPkgName
+			packages[i].ImportAlias = "root"
 			continue
 		}
 		seen[pkg.PkgName]++
@@ -211,7 +209,6 @@ func loadSetup(cfg *packages.Config) (setup, error) {
 					}
 					stp.Config = name.Name
 					stp.PkgPath = root.PkgPath
-					stp.PkgName = root.Name
 					stp.Dir = root.Dir
 				}
 			}

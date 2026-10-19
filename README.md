@@ -57,7 +57,7 @@ var MyTest = e2e.Test{
 ```
 
 ### More advanced example
-The `setup.go` file in the example below is not required but is a good place to declare project level setup instructions as described in [Setup and teardown](#setup-and-teardown-optional) and [Addressbook](#addressbook-optional). For reasons that will be described later in this guide, not least of all simply organisational, you might want to define multiple files in multiple packages. How you choose to name your packages is up to you.
+The `setup.go` file in the example below is not required but is a good place to declare the project's [`Config`](#config-optional), which holds project level settings such as [setup and teardown](#setup-and-teardown), [TLS](#tls-and-mtls) and the [AddressBook](#addressbook). For reasons that will be described later in this guide, not least of all simply organisational, you might want to define multiple files in multiple packages. How you choose to name your packages and files is up to you.
 
 Eg.
 ```
@@ -85,22 +85,112 @@ e2e [-v] <pattern> [env]
 
 - `-v` is a boolean flag making the test output more verbose. Specifically it prints all response headers. Otherwise only the headers the test expects are printed.
 - `pattern` describes the location of the tests you want to run. It uses the same format as `go test`. To run all tests in the project pass `./...`. You can also run all tests in a package or all tests in a file by providing their respective paths, eg. `./smoketests` or `./smoketests/test1.go` 
-- `env` is an optional string value that if passed can be used for runtime lookups in the [`Addressbook`](#addressbook-optional) provided by the `addr` package. This enables quick switching between testing base URLs specific to different environments.
+- `env` is an optional string value that if passed can be used for runtime lookups in the [`AddressBook`](#address-lookups) provided by the `addr` package. This enables quick switching between testing base URLs specific to different environments.
 
-### Setup and teardown (optional)
-There are two hooks `BeforeRun` and `AfterRun` that, when defined in the module root, will be run before and after each `e2e` tool run. These hooks can be used to perform any setup and/or teardown needed.
+### Config (optional)
+Project level settings are declared in a single exported variable of type `e2e.Config` in the project root, which is the package in the directory you run `e2e` from. The `e2e` tool finds it automatically, whatever the name of the variable. All fields are optional, and if you need no custom config the declaration of the `Config` variable can be skipped altogether.
 
 ```go
-func BeforeRun() any {
-	// Any setup here
-}
+import (
+	"github.com/gombrii/go-e2e"
+	"github.com/gombrii/go-e2e/addr"
+)
 
-func AfterRun(any) {
-	// Any teardown here 
+var Config = e2e.Config{
+	AddressBook: addr.AddressBook{ /* ... */ },
+	BeforeRun:   func() any { /* ... */ },
+	AfterRun:    func(any) { /* ... */ },
+	TLS:         clientTLS(), // *tls.Config
 }
 ```
 
-For `e2e` to run them make sure to match their respective signatures exactly. Take note that they are exported. Whatever is returned by `BeforeRun` is what will be passed to `AfterRun` after all tests have finished. Use type assertion to access it. If `AfterRun` is declared, but `BeforeRun` is not, then `AfterRun` receives `nil` as argument.
+Only one `Config` may be declared in the project root. One declared in any other package is ignored.
+
+#### AddressBook
+`AddressBook` is a nested `map`. The outer key is the environment and the inner key is the name of an address. Configuring an `AddressBook` enables dynamic address lookups in tests depending on environment.
+
+```go
+import (
+	"github.com/gombrii/go-e2e"
+	"github.com/gombrii/go-e2e/addr"
+)
+
+var Config = e2e.Config{
+	AddressBook: addr.AddressBook{
+		"local": {
+			"auth":  "http://localhost:8080/api/v1/auth",
+			"users": "http://localhost:8081/api/v1/users",
+		},
+		"dev": {
+			"auth":  "https://auth.dev.example.com/api/v1/auth",
+			"users": "https://users.dev.example.com/api/v1/users",
+		},
+		"prod": {
+			"auth":  "https://auth.example.com/api/v1/auth",
+			"users": "https://users.example.com/api/v1/users",
+		},
+	},
+}
+```
+
+See [Address lookups](#address-lookups) below for details on how it's used in tests.
+
+#### Setup and teardown
+`BeforeRun` and `AfterRun` are run before and after each `e2e` tool run. They can be used to perform any setup and/or teardown needed.
+
+```go
+var Config = e2e.Config{
+	BeforeRun: func() any {
+		// Any setup here
+		return nil // Any value, passed on to AfterRun
+	},
+	AfterRun: func(fromBefore any) {
+		// Any teardown here
+	},
+}
+```
+
+Whatever is returned by `BeforeRun` is what will be passed to `AfterRun` after all tests have finished. Use type assertion to access it. If `AfterRun` is set, but `BeforeRun` is not, then `AfterRun` receives `nil` as argument.
+
+#### TLS and mTLS
+`TLS` is used by the HTTP client that runs all tests. Leave it out to get Go's default TLS behavior. Set it to talk to servers that require mTLS, by presenting a client certificate, or to servers whose certificates are signed by a private CA.
+
+```go
+import (
+	"crypto/tls"
+	"crypto/x509"
+	"os"
+
+	"github.com/gombrii/go-e2e"
+)
+
+var Config = e2e.Config{
+	TLS: clientTLS(),
+}
+
+func clientTLS() *tls.Config {
+	// The client certificate presented to servers requiring mTLS
+	cert, err := tls.LoadX509KeyPair("certs/client.crt", "certs/client.key")
+	if err != nil {
+		panic(err)
+	}
+
+	// Only needed if the servers' certificates are signed by a CA your system doesn't trust
+	caPEM, err := os.ReadFile("certs/ca.crt")
+	if err != nil {
+		panic(err)
+	}
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM(caPEM)
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      pool,
+	}
+}
+```
+
+Relative paths are resolved from the directory from which you run `e2e`.
 
 ## e2e library
 The library needed to define tests consists of the `e2e` package, and the `addr` package for address book lookups.
@@ -225,6 +315,36 @@ Expect: e2e.Expect{
 
 The `Capture` property allows some data to be captured from the HTTP response body or headers in a test. This is discussed further in the [`Sequences`](#sequences) section.
 
+### Address lookups
+The `AddressBook` is a feature provided by the `addr` package. It enables runtime address lookup using a preconfigured addressbook in combination with the [`env`](#usage) parameter if passed to the `e2e` tool. See [AddressBook](#addressbook) above for information on how to configure it. The benefit of the `AddressBook` is that it makes tests environment agnostic. Instead of a hardcoded URL, a test will be targeted toward a named address defined in the `AddressBook`. The `env` passed will then decide which variant of that address will be used.
+
+Having configured an `AddressBook` makes it possible to perform lookups in tests. Useful when setting the URL field of a test's Request. Paths can easily be appended using the plus operator.
+
+```go
+addr.Lookup("auth") + "/user"
+
+// Alternative to addr.Lookup. Can be used to override the `env` parameter. Inflexible,
+// but sometimes handy.
+addr.EnvLookup("dev", "auth") + "/user"
+```
+
+Now depending on the `env` argument passed to `e2e` this `addr.Lookup` would return different results. Using the example addressbook shown in [AddressBook](#addressbook) these would be the results:
+
+```shell
+e2e ./auth/mytest.go local
+# "http://localhost:8080/api/v1/auth/user"
+
+e2e ./auth/mytest.go dev
+# "https://auth.dev.example.com/api/v1/auth/user"
+
+e2e ./auth/mytest.go prod
+# "https://auth.example.com/api/v1/auth/user"
+```
+
+The results of the example `addr.EnvLookup` would always be "https://auth.dev.example.com/api/v1/auth/user".
+
+> Tests that use lookups in their declaration, like the examples above, need to live in a package other than the project root. Lookups in the declarations of tests in the project root result in an error.
+
 ### Sequences
 When testing a chain of HTTP calls that build on each other, multiple `Test`s can be run together in a `Sequence`. A `Sequence` is just a list of tests that run one after another as steps, in a shared context. This means that data can be transferred from one step to the next. The main mechanism to achieve this is the [captor](#advanced). A captor is an entry in the `Capture` block of a test, given as `Captor{Name, As, Regex}`. `Name` is the response body field or header to capture the value of. Body fields are checked first, using the same dot-separated path syntax as `Expect.Body`, and a header of that name is only checked if no body field matched. `As` is optional and, if set, is the key the captured value is stored under instead of `Name`, handy for giving a long dotted path a short name to reference later or to resolve reference naming conflicts. `Regex` is also optional and lets you cherry-pick part of the captured value instead of the whole thing; see [Extracting part of a captured value](#extracting-part-of-a-captured-value) below.
 
@@ -298,42 +418,6 @@ Capture: []e2e.Captor{
 ```
 
 Given the example header above, this captures `abc-123` under the key `sessionID`, referenced later as `$sessionID`. If `Regex` isn't valid regex syntax, the test fails immediately, before anything runs, same as leaving `Request.Method` or `Request.URL` empty. If it's valid but doesn't match anything within the captured value, nothing is captured for that step.
-
-### AddressBook (optional)
-The `AddressBook` is a feature provided by the `addr` package that enables runtime address lookup using a predefined addressbook in combination with the [`env`](#usage) parameter if passed to the `e2e` tool. This is to be able to make tests environment agnostic. Instead of a hardcoded URL, a test will be targeted toward a named address defined in the `AddressBook`. The `env` passed will then decide which variant of that address will be used.
-
-`AddressBook` is a nested `map` which you can register with a call to `addr.Set` in the `init` hook in the project root.
-
-```go
-import "github.com/gombrii/go-e2e/addr"
-
-func init() {
-	addr.Set(addr.AddressBook{
-		"local": {
-			"auth":  "http://localhost:8080/api/v1/auth",
-			"users": "http://localhost:8081/api/v1/users",
-		},
-		"dev": {
-			"auth":  "https://auth.dev.example.com/api/v1/auth",
-			"users": "https://users.dev.example.com/api/v1/users",
-		},
-		"prod": {
-			"auth":  "https://auth.example.com/api/v1/auth",
-			"users": "https://users.example.com/api/v1/users",
-		},
-	})
-}
-```
-
-Having registered an `AddressBook` makes it possible to perform lookups in tests like so `addr.Lookup("users")`. Paths can easily be appended using the plus operator.
-
-```go
-addr.Lookup("users") + "/user_2430"
-
-// Alternative to addr.Lookup. Can be used to override the `env` parameter. Inflexible,
-// but sometimes handy.
-addr.EnvLookup("dev", "users") + "/user_2430"
-```
 
 > Last tip: Since an [action](#advanced) can require user input when running the test it is a good idea to think about how tests are organized in packages and files. It can be useful to have a separate catalogue of tests that can be run without needing user input, keeping tests that do require it separate to cover more intricate features of an API.
 
